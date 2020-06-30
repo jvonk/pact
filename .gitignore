@@ -3,3 +3,4 @@ config.py
 **/sdkconfig
 .ipynb_checkpoints
 .idea
+**/.vscode
