@@ -2,3 +2,4 @@
 .vscode
 **/build
 **/sdkconfig
+ESP32_BLE-Scan-Johan/sdkconfig
