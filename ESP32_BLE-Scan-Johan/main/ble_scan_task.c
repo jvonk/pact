@@ -3,6 +3,7 @@
  **/
 // Copyright © 2020, Johan Vonk
 // SPDX-License-Identifier: MIT
+
 #include <sdkconfig.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,7 +109,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
                     len += sprintf(payload + len, "{ \"Address\": \"");
                     for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
-                        len += sprintf(payload + len, "%02x%s", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ":" : "");
+                        len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
                     }
 #if 0
                     len += sprintf(payload + len, "\", \"UUID\": \"");
@@ -121,11 +122,11 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     len += sprintf(payload + len, "\", \"Major\": \"%04x\"", major);
                     len += sprintf(payload + len, "\", \"Minor\": \"%04x\"", minor);
 #endif
-                    len += sprintf(payload + len, "\", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
+                    len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
                     len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
 
                     //ESP_LOGI(TAG, "body = \"%.*s\"", len, payload);
-                    char *const msg = strdup(payload);
+                    char * const msg = strdup(payload);
                     //ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
                     if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
                         ESP_LOGW(TAG, "measurementQ full");
@@ -260,8 +261,10 @@ void ble_scan_task(void * ipc_void) {
 
 	uint8_t const *const myBda = esp_bt_dev_get_address();
 	uint len = 0;
-	char *msg = malloc(ESP_BD_ADDR_LEN * 2 + 1);
-	for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) len += sprintf(msg + len, "%02x", myBda[ii]);
+	char * msg = malloc(ESP_BD_ADDR_LEN * 3);
+    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
+        len += sprintf(msg + len, "%02x%s", myBda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ":" : "");
+    }
 
 	ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
 	if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
