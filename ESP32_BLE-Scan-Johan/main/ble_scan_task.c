@@ -247,6 +247,33 @@ static bleMode_t _str2bleMode(char const * const msg) {
     return 0;
 }
 
+void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
+	typedef struct {
+		uint8_t const bda[ESP_BD_ADDR_LEN];
+		char const * const name;
+	} PACK8 knownMac_t;
+	static knownMac_t knownMacs[] = {
+		{{ 0x30, 0xae, 0xa4, 0xcc, 0x24, 0x68}, "esp32-1"},
+		{{ 0x30, 0xae, 0xa4, 0xcc, 0x32, 0x4c}, "esp32-2"},
+		{{ 0xac, 0x67, 0xb2, 0x53, 0x82, 0x88}, "esp32-3"},
+		{{ 0xac, 0x67, 0xb2, 0x53, 0x7f, 0x20}, "esp32-4"},
+		{{ 0xac, 0x67, 0xb2, 0x53, 0x84, 0x80}, "esp32-5"},
+		{{ 0xAC, 0x67, 0xB2, 0x53, 0x84, 0xA8}, "esp32-6"},
+		{{ 0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x88}, "esp32-7"},
+		{{ 0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1C}, "esp32-8"},
+		{{ 0xac, 0x67, 0xb2, 0x53, 0x84, 0xb0}, "esp32-9"},
+		{{ 0xac, 0x67, 0xb2, 0x53, 0x7b, 0x38}, "esp32-10"}
+	};
+	for (ii=0; ii < ARRAYSIZE(knownMacs); ii++) {
+		if (memcmp(bda, knownMacs[ii].bda, ESP_BD_ADDR_LEN) == 0) {
+			strcpy(name, knownMacs[ii].name, name_len);
+			return;
+		}
+	}
+	snprintf(name, name_len, "esp32_%02x%02x",
+			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
+}
+
 void ble_scan_task(void * ipc_void) {
 	ipc = ipc_void;
 
@@ -260,11 +287,9 @@ void ble_scan_task(void * ipc_void) {
 	// first message to ipc->measurementQ is the BLE MAC address (rx'ed by mqtt_client_task
 
 	uint8_t const *const myBda = esp_bt_dev_get_address();
-	uint len = 0;
-	char * msg = malloc(ESP_BD_ADDR_LEN * 3);
-    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
-        len += sprintf(msg + len, "%02x%s", myBda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ":" : "");
-    }
+
+	char msg[12];
+	_bda2name(myBda, msg);
 
 	ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
 	if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
