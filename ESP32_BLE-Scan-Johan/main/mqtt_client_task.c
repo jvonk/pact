@@ -3,6 +3,7 @@
  **/
 // Copyright © 2020, Johan Vonk
 // SPDX-License-Identifier: MIT
+
 #include <sdkconfig.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +26,7 @@ typedef enum {
 	MQTT_EVENT_CONNECTED_BIT = BIT0
 } mqttEvent_t;
 
-static char _bleMAC[2 * 6 + 1];  // as string
+static char _bleMAC[3 * 6];  // as string
 
 static
 esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
