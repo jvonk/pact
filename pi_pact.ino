@@ -1,3 +1,9 @@
+/**
+ * @brief BLE iBeacon advertisement or scanning for Intel Curie based Arduino 101
+ **/
+// Copyright © 2020, Johan Vonk
+// SPDX-License-Identifier: MIT
+
 #include <arduino.h>
 #include <CurieBLE.h>
 #include <internal/BLEUtils.h>
@@ -54,9 +60,9 @@ void bleCentralDiscoverHandler(BLEDevice peripheral) {
             //removeColons(peripheral.address().c_str(), address);
             char const * const address = peripheral.address().c_str();
 
-            uint8_t pwr = 0;
+            int8_t pwr = 0;
             if (manu_data_length >= sizeof(iBeacon)) {
-                pwr = manu_data[offsetof(iBeacon_t, txpwr)];
+                pwr =(int8_t)manu_data[offsetof(iBeacon_t, txpwr)];
             }
             len += sprintf(json + len, "{ \"Address\": \"%s\"", address);
             len += sprintf(json + len, ", \"txPwr\": %d", pwr);
