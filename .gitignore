@@ -1,1 +1,6 @@
-/config.py
+config.py
+**/build
+**/sdkconfig
+.ipynb_checkpoints
+.idea
+*.projbuild
