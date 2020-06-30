@@ -132,7 +132,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                         ESP_LOGW(TAG, "measurementQ full");
                         free(msg);
                     }
-    #if 1
+    #if 0
                 } else {
                     if (scan_result->scan_rst.ble_adv) {
                         static esp_ble_ibeacon_head_t const ibeacon_common_head = {
@@ -264,9 +264,9 @@ void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
 		{{ 0xac, 0x67, 0xb2, 0x53, 0x84, 0xb0}, "esp32-9"},
 		{{ 0xac, 0x67, 0xb2, 0x53, 0x7b, 0x38}, "esp32-10"}
 	};
-	for (ii=0; ii < ARRAYSIZE(knownMacs); ii++) {
+	for (uint ii=0; ii < ARRAYSIZE(knownMacs); ii++) {
 		if (memcmp(bda, knownMacs[ii].bda, ESP_BD_ADDR_LEN) == 0) {
-			strcpy(name, knownMacs[ii].name, name_len);
+			strncpy(name, knownMacs[ii].name, name_len);
 			return;
 		}
 	}
@@ -288,8 +288,9 @@ void ble_scan_task(void * ipc_void) {
 
 	uint8_t const *const myBda = esp_bt_dev_get_address();
 
-	char msg[12];
-	_bda2name(myBda, msg);
+    uint const msg_len = 32;
+	char * msg = malloc(msg_len);
+	_bda2name(myBda, msg, msg_len);
 
 	ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
 	if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
@@ -337,24 +338,28 @@ void ble_scan_task(void * ipc_void) {
 		if (xQueueReceive(ipc->controlQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 			// ESP32 can only do one function at a time (SCAN || ADVERTISE)
 
-            bleMode_t const bleMode = _str2bleMode(msg);
-            //ESP_LOGI(TAG, "ctrl msg \"%s\", new bleMode = %d (was %d)", msg, bleMode, _bleMode);
-            if (bleMode && bleMode != _bleMode) {
-                switch(bleMode) {
-                    case BLE_MODE_IDLE:
-                        _bleStopScan();
-                        _bleStopAdv();
-                        break;
-                    case BLE_MODE_SCAN:
-                        _bleStopAdv();
-                        _bleStartScan();
-                        break;
-                    case BLE_MODE_ADV:
-                        _bleStopScan();
-                        _bleStartAdv();
-                        break;
+            if (strcmp(msg, "restart")) {
+                esp_restart();
+            } else {
+                bleMode_t const bleMode = _str2bleMode(msg);
+                //ESP_LOGI(TAG, "ctrl msg \"%s\", new bleMode = %d (was %d)", msg, bleMode, _bleMode);
+                if (bleMode && bleMode != _bleMode) {
+                    switch(bleMode) {
+                        case BLE_MODE_IDLE:
+                            _bleStopScan();
+                            _bleStopAdv();
+                            break;
+                        case BLE_MODE_SCAN:
+                            _bleStopAdv();
+                            _bleStartScan();
+                            break;
+                        case BLE_MODE_ADV:
+                            _bleStopScan();
+                            _bleStartAdv();
+                            break;
+                    }
+                    _bleMode = bleMode;
                 }
-                _bleMode = bleMode;
             }
 			free(msg);
 		}
