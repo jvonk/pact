@@ -1,3 +1,4 @@
 /config.py
 .vscode
-**/buid
+**/build
+**/sdkconfig
