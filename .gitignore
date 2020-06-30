@@ -1,5 +1,5 @@
-/config.py
-.vscode
+config.py
 **/build
 **/sdkconfig
-ESP32_BLE-Scan-Johan/sdkconfig
+.ipynb_checkpoints
+.idea

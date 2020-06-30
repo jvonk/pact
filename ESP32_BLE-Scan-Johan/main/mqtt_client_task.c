@@ -3,6 +3,7 @@
  **/
 // Copyright © 2020, Johan Vonk
 // SPDX-License-Identifier: MIT
+
 #include <sdkconfig.h>
 #include <stdlib.h>
 #include <string.h>

@@ -48,14 +48,12 @@ void bleCentralDiscoverHandler(BLEDevice peripheral) {
 
     if (peripheral.hasManufacturerData()) {
 
-
         uint8_t manu_data[0xff];
         uint8_t manu_data_length;
 
         if (peripheral.getManufacturerData(manu_data, manu_data_length) && manu_data_length >= sizeof(iBeacon.header) && memcmp(manu_data, iBeacon.header, sizeof(iBeacon.header)) == 0) {
             char json[256];
             int len = 0;
-            //int const BD_ADDR_LEN = 6;
             //char address[BD_ADDR_LEN * 2 + 1];
             //removeColons(peripheral.address().c_str(), address);
             char const * const address = peripheral.address().c_str();
@@ -63,6 +61,11 @@ void bleCentralDiscoverHandler(BLEDevice peripheral) {
             int8_t pwr = 0;
             if (manu_data_length >= sizeof(iBeacon)) {
                 pwr =(int8_t)manu_data[offsetof(iBeacon_t, txpwr)];
+            }
+            int const BD_ADDR_LEN = 6;
+            for (int ii = 0; ii < BD_ADDR_LEN; ii++) {
+                len += sprintf(json + len, "%02x%c", myMacAddress[ii],
+                (ii < BD_ADDR_LEN - 1) ? ':' : ' ');
             }
             len += sprintf(json + len, "{ \"Address\": \"%s\"", address);
             len += sprintf(json + len, ", \"txPwr\": %d", pwr);
