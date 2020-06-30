@@ -1,0 +1,31 @@
+{
+    "C_Cpp.clang_format_style": "{BasedOnStyle: Google, IndentWidth: 4, IndentCaseLabels: false, TabWidth: 4, UseTab: ForIndentation, ColumnLimit: 0}",
+    "C_Cpp.clang_format_fallbackStyle": "Google",
+    "[cpp]": {
+        "editor.quickSuggestions": true
+    },
+    "[c]": {
+        "editor.quickSuggestions": true
+    },
+    "C_Cpp.intelliSenseEngineFallback": "Enabled",
+    "idf.adapterTargetName": "esp32",
+    "idf.portWin": "COM6",
+    "idf.baudRate": "115200",
+    "files.associations": {
+        "*.ipp": "c",
+        "sockets.h": "c",
+        "*.inc": "c",
+        "clock_ota.h": "c",
+        "esp_intr.h": "c",
+        "esp_ota_ops.h": "c",
+        "esp_flash_partitions.h": "c",
+        "esp_wifi.h": "c",
+        "rmt.h": "c",
+        "led_strip.h": "c"
+    },
+    "clang-format.executable": "C:/Program Files/LLVM/bin/clang-format.exe",
+    "workbench.tree.indent": 20,
+    "files.trimTrailingWhitespace": true,
+    "editor.detectIndentation": false,
+    "cmake.configureOnOpen": false,
+}
