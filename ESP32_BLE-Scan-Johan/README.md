@@ -45,15 +45,22 @@ To switch modes, sent a control message to either MQTT topic:
 - `blescan/ctrl`, all devices listen to this
 - `blescan/ctrl/BLEMAC`, where `BLEMAC` is the device specific BLE MAC hardware, e.g. `30aea4cc324e`
 
-The message should contain `adv`, `scan` or `idle`.  E.g.:
+Messages can be sent to a specific device, or the whole group:
 ```
-mosquitto_pub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl/30aea4cc324e" -m "scan"
+mosquitto_pub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl/esp-1" -m "echo"
+mosquitto_pub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl" -m "echo"
 ```
+
+Other control messages are:
+- `restart`, to restart the ESP32 (and check for OTA updates)
+- `echo`, can be used for device discovery when sent to the group
 
 ### Scan results
 
 Scan results are reported on MQTT topic:
-- `blescan/ibeacon/BLEMAC`, where `BLEMAC` is the device specific BLE hardware address, e.g. `30aea4cc324e`
+- `blescan/ibeacon/DEVNAME`, where `DEVNAME` is either:
+   - the device name, such as `esp32-1`, or
+   - `esp32_XXXX` where the `XXXX` are the last digits of the BLE hardware address.
 
 To listen to all scan results, use e.g.
 ```
