@@ -1,5 +1,9 @@
-/* Reset when running and BOOT/RESET button is pressed for 3 seconds
-*/
+/**
+ * @brief Reset when running and BOOT/RESET button is pressed for 3 seconds
+ **/
+// Copyright © 2020, Coert Vonk
+// SPDX-License-Identifier: MIT
+
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
