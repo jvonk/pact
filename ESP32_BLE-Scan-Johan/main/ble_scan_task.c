@@ -30,7 +30,7 @@
 #define PACK( type )  __attribute__((aligned( __alignof__( type ) ), packed ))
 #define PACK8  __attribute__((aligned( __alignof__( uint8_t ) ), packed ))
 
-static const char *TAG = "ble_scan_task";
+static char const * const TAG = "ble_scan_task";
 static ble_scan_task_ipc_t * ipc = NULL;
 
 static EventGroupHandle_t ble_event_group = NULL;
@@ -43,13 +43,11 @@ typedef enum {
 	BLE_EVENT_ADV_STOP_COMPLETE = BIT5
 } bleEvent_t;
 
-typedef enum {
+typedef enum {  // ESP32 can only do one function at a time (SCAN || ADVERTISE)
 	BLE_MODE_IDLE = 1,
 	BLE_MODE_SCAN,
 	BLE_MODE_ADV
 } bleMode_t;
-
-bleMode_t _bleMode = BLE_MODE_IDLE;
 
 extern esp_ble_ibeacon_vendor_t vendor_config;
 
@@ -147,6 +145,7 @@ void ble_ibeacon_init(void) {
 }
 
 static void _bleStartScan(void) {
+
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
     {
         uint32_t duration = 0;  // [sec], 0 means scan permanently
@@ -158,7 +157,6 @@ static void _bleStartScan(void) {
 
 static void _bleStopScan(void) {
 
-	if (_bleMode != BLE_MODE_SCAN) return;
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE);
     {
         if (esp_ble_gap_stop_scanning() != ESP_OK) {
@@ -171,7 +169,6 @@ static void _bleStopScan(void) {
 
 static void _bleStartAdv(uint16_t const adv_int_min) {
 
-	if (_bleMode != BLE_MODE_ADV) return;
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
     {
         static esp_ble_adv_params_t ble_adv_params = {
@@ -220,7 +217,7 @@ static bleMode_t _str2bleMode(char const * const msg) {
     return 0;
 }
 
-void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
+void _bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
 	typedef struct {
 		uint8_t const bda[ESP_BD_ADDR_LEN];
 		char const * const name;
@@ -248,6 +245,7 @@ void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
 			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
 }
 
+#if 0
 void _bda2str(uint8_t const * const bda, char * const str, size_t str_len) {
 
     uint len = 0;
@@ -259,6 +257,7 @@ void _bda2str(uint8_t const * const bda, char * const str, size_t str_len) {
         }
     }
 }
+#endif
 
 void _prep4adv(void) {
 
@@ -310,31 +309,26 @@ void ble_scan_task(void * ipc_void) {
 
 	ipc = ipc_void;
 
-	ESP_LOGI(TAG, "start");
+	ESP_LOGI(TAG, "starting");
 	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 	esp_bt_controller_init(&bt_cfg);
 	esp_bt_controller_enable(ESP_BT_MODE_BLE);
 	ble_ibeacon_init();
 
-	// first message to ipc->measurementQ is the BLE MAC address (rx'ed by mqtt_client_task
-
-	uint8_t const * const myBda = esp_bt_dev_get_address();
-    char brdName[40];
-    _bda2str(myBda, brdName, ARRAYSIZE(brdName));
-    ESP_LOGI(TAG, "BD_ADDR = {%s}", brdName);
+	// first message to ipc->measurementQ is the device name (rx'ed by mqtt_client_task)
 
     uint const msg_len = 32;
 	char * msg = malloc(msg_len);
-	_bda2name(myBda, msg, msg_len);
+	_bda2devname(esp_bt_dev_get_address(), msg, msg_len);
 
 	ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
 	if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
-		ESP_LOGW(TAG, "measurementQ full");  // should never happen here, since its the first msg
+		ESP_LOGE(TAG, "measurementQ full (1st)");  // should never happen, since its the first msg
 		free(msg);
 	}
 
-	ble_event_group = xEventGroupCreate();  // lets event handler signal completion
+	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 
     uint16_t adv_int_min = 0x00F0;  // dflt min advertisement interval = 150 msec [n * 0.625 msec]
     uint16_t scan_window = 0x0030;  // dflt scan duration = 30 msec [n * 0.625 msec]
@@ -342,7 +336,7 @@ void ble_scan_task(void * ipc_void) {
     _prep4adv();
     _prep4scan(scan_window);
 
-	_bleMode = BLE_MODE_ADV;
+    bleMode_t bleMode = BLE_MODE_ADV;
 	_bleStartAdv(adv_int_min);
 
 	while (1) {
@@ -371,24 +365,24 @@ void ble_scan_task(void * ipc_void) {
                 }
 
             } else {
-    			// ESP32 can only do one function at a time (SCAN || ADVERTISE)
-                bleMode_t const bleMode = _str2bleMode(args[0]);
-                if (bleMode && bleMode != _bleMode) {
+                bleMode_t const newBleMode = _str2bleMode(args[0]);
+
+                if (newBleMode && newBleMode != bleMode) {
                     switch(bleMode) {
                         case BLE_MODE_IDLE:
-                            _bleStopScan();
-                            _bleStopAdv();
+                            if (bleMode == BLE_MODE_SCAN) _bleStopScan();
+                            if (bleMode == BLE_MODE_ADV) _bleStopAdv();
                             break;
                         case BLE_MODE_SCAN:
-                            _bleStopAdv();
+                            if (bleMode == BLE_MODE_ADV) _bleStopAdv();
                             _bleStartScan();
                             break;
                         case BLE_MODE_ADV:
-                            _bleStopScan();
+                            if (bleMode == BLE_MODE_SCAN) _bleStopScan();
                             _bleStartAdv(adv_int_min);
                             break;
                     }
-                    _bleMode = bleMode;
+                    bleMode = newBleMode;
                 }
             }
 			free(msg);
