@@ -111,47 +111,15 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
                         len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
                     }
-#if 0
-                    len += sprintf(payload + len, "\", \"UUID\": \"");
-                    for (uint ii = 0; ii < ESP_UUID_LEN_128; ii++) {
-                        if (ii == 4 || ii == 6 || ii == 8) *(payload + len++) = '-';
-                        len += sprintf(payload + len, "%02x", ibeacon_data->ibeacon_vendor.proximity_uuid[ii]);
-                    }
-                    uint16_t major = ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.major);
-                    uint16_t minor = ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.minor);
-                    len += sprintf(payload + len, "\", \"Major\": \"%04x\"", major);
-                    len += sprintf(payload + len, "\", \"Minor\": \"%04x\"", minor);
-#endif
                     len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
                     len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
 
-                    //ESP_LOGI(TAG, "body = \"%.*s\"", len, payload);
                     char * const msg = strdup(payload);
                     //ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
                     if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
                         ESP_LOGW(TAG, "measurementQ full");
                         free(msg);
                     }
-    #if 0
-                } else {
-                    if (scan_result->scan_rst.ble_adv) {
-                        static esp_ble_ibeacon_head_t const ibeacon_common_head = {
-                            .flags = {0x02, 0x01, 0x06},
-                            .length = 0x1A,
-                            .type = 0xFF,
-                            .company_id = 0x004C,
-                            .beacon_type = 0x1502 };
-                        bool lenOk = scan_result->scan_rst.adv_data_len == 0x1E;
-                        bool headOk = memcmp(scan_result->scan_rst.ble_adv, (uint8_t *)&ibeacon_common_head, sizeof(ibeacon_common_head)) == 0;
-                        ESP_LOGI(TAG, "len = 0x%02x (%s), head = 0x%02x%02x%02x%02x%02x%02x%02x%02x (%s)",
-                                scan_result->scan_rst.adv_data_len, lenOk ? "OK" : "ERR",
-                                scan_result->scan_rst.ble_adv[0], scan_result->scan_rst.ble_adv[1],
-                                scan_result->scan_rst.ble_adv[2], scan_result->scan_rst.ble_adv[3],
-                                scan_result->scan_rst.ble_adv[4], scan_result->scan_rst.ble_adv[5],
-                                scan_result->scan_rst.ble_adv[6], scan_result->scan_rst.ble_adv[7],
-                                headOk ? "OK" : "ERR");
-                    }
-    #endif
                 }
                 break;
             default:
@@ -284,7 +252,6 @@ void _bda2str(uint8_t const * const bda, char * const str, size_t str_len) {
 
     uint len = 0;
     for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
-        //ESP_LOGI(TAG, "ii %d, str_len - len = %d", ii, str_len - len);
         len += snprintf(str + len, str_len - len, "0x%02x", bda[ii]);
         if (ii < ESP_BD_ADDR_LEN - 1) {
             str[len++] = ',';
