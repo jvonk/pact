@@ -350,7 +350,7 @@ void ble_scan_task(void * ipc_void) {
                 ESP_LOGI(TAG, "args[%d] = %s", ii, args[ii]);
             }
 
-            if (strcmp(args[0], "restart")) {
+            if (strcmp(args[0], "restart") == 0) {
                 char * const reply = strdup("restarting");
                 if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
                     free(reply);
@@ -358,7 +358,7 @@ void ble_scan_task(void * ipc_void) {
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
                 esp_restart();
 
-            } else if (strcmp(args[0], "echo")) {
+            } else if (strcmp(args[0], "echo") == 0) {
                 char * const reply = strdup(msg);
                 if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
                     free(reply);
