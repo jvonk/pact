@@ -51,7 +51,8 @@ typedef enum {  // ESP32 can only do one function at a time (SCAN || ADVERTISE)
 
 extern esp_ble_ibeacon_vendor_t vendor_config;
 
-static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+static void
+_gapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 
 	esp_err_t err;
 
@@ -130,21 +131,18 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 	}
 }
 
-void ble_ibeacon_appRegister(void)  // register the scan callback function to the gap module
-{
-	ESP_LOGI(TAG, "register callback");
+static void
+_initIbeacon(void) {
 
-	esp_err_t status = esp_ble_gap_register_callback(esp_gap_cb);
+	esp_bluedroid_init();
+	esp_bluedroid_enable();
+
+	esp_err_t status = esp_ble_gap_register_callback(_gapHandler);
 	if (status != ESP_OK) ESP_LOGE(TAG, "gap register error: %s", esp_err_to_name(status));
 }
 
-void ble_ibeacon_init(void) {
-	esp_bluedroid_init();
-	esp_bluedroid_enable();
-	ble_ibeacon_appRegister();
-}
-
-static void _bleStartScan(void) {
+static void
+_bleStartScan(void) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
     {
@@ -155,7 +153,8 @@ static void _bleStartScan(void) {
 	ESP_LOGI(TAG, "STARTED scanning");
 }
 
-static void _bleStopScan(void) {
+static void
+_bleStopScan(void) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE);
     {
@@ -167,7 +166,8 @@ static void _bleStopScan(void) {
 	ESP_LOGI(TAG, "STOPPED scanning");
 }
 
-static void _bleStartAdv(uint16_t const adv_int_min) {
+static void
+_bleStartAdv(uint16_t const adv_int_min) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
     {
@@ -186,7 +186,8 @@ static void _bleStartAdv(uint16_t const adv_int_min) {
 	ESP_LOGI(TAG, "STARTED advertising");
 }
 
-static void _bleStopAdv(void) {
+static void
+_bleStopAdv(void) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE);
     {
@@ -198,7 +199,8 @@ static void _bleStopAdv(void) {
 	ESP_LOGI(TAG, "STOPPED advertising");
 }
 
-static bleMode_t _str2bleMode(char const * const msg) {
+static bleMode_t
+_str2bleMode(char const * const msg) {
 
     typedef struct {
         char * str;
@@ -217,7 +219,8 @@ static bleMode_t _str2bleMode(char const * const msg) {
     return 0;
 }
 
-void _bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
+static void
+_bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
 	typedef struct {
 		uint8_t const bda[ESP_BD_ADDR_LEN];
 		char const * const name;
@@ -245,21 +248,8 @@ void _bda2devname(uint8_t const * const bda, char * const name, size_t name_len)
 			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
 }
 
-#if 0
-void _bda2str(uint8_t const * const bda, char * const str, size_t str_len) {
-
-    uint len = 0;
-    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
-        len += snprintf(str + len, str_len - len, "0x%02x", bda[ii]);
-        if (ii < ESP_BD_ADDR_LEN - 1) {
-            str[len++] = ',';
-            str[len++] = ' ';
-        }
-    }
-}
-#endif
-
-void _prep4adv(void) {
+static void
+_prep4adv(void) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
 	{
@@ -274,7 +264,8 @@ void _prep4adv(void) {
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 }
 
-void _prep4scan(uint16_t const scan_window) {
+static void
+_prep4scan(uint16_t const scan_window) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
 	{
@@ -292,7 +283,8 @@ void _prep4scan(uint16_t const scan_window) {
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 }
 
-uint _splitArgs(char * msg, char * args[], uint const args_len) {
+static uint
+_splitArgs(char * msg, char * args[], uint const args_len) {
 
     uint ii = 0;
     char const * const delim = " ";
@@ -305,7 +297,31 @@ uint _splitArgs(char * msg, char * args[], uint const args_len) {
     return ii;
 }
 
-void ble_scan_task(void * ipc_void) {
+static bleMode_t
+_changeBleMode(bleMode_t const current, bleMode_t const new, uint16_t const adv_int_min) {
+
+    if (new == current) {
+        return new;
+    }
+    switch(current) {
+        case BLE_MODE_IDLE:
+            if (current == BLE_MODE_SCAN) _bleStopScan();
+            if (current == BLE_MODE_ADV) _bleStopAdv();
+            break;
+        case BLE_MODE_SCAN:
+            if (current == BLE_MODE_ADV) _bleStopAdv();
+            _bleStartScan();
+            break;
+        case BLE_MODE_ADV:
+            if (current == BLE_MODE_SCAN) _bleStopScan();
+            _bleStartAdv(adv_int_min);
+            break;
+    }
+    return new;
+}
+
+void
+ble_scan_task(void * ipc_void) {
 
 	ipc = ipc_void;
 
@@ -314,7 +330,7 @@ void ble_scan_task(void * ipc_void) {
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 	esp_bt_controller_init(&bt_cfg);
 	esp_bt_controller_enable(ESP_BT_MODE_BLE);
-	ble_ibeacon_init();
+	_initIbeacon();
 
 	// first message to ipc->measurementQ is the device name (rx'ed by mqtt_client_task)
 
@@ -364,25 +380,20 @@ void ble_scan_task(void * ipc_void) {
                     free(reply);
                 }
 
-            } else {
-                bleMode_t const newBleMode = _str2bleMode(args[0]);
+            } else if (strcmp(args[0], "int") == 0) {
 
-                if (newBleMode && newBleMode != bleMode) {
-                    switch(bleMode) {
-                        case BLE_MODE_IDLE:
-                            if (bleMode == BLE_MODE_SCAN) _bleStopScan();
-                            if (bleMode == BLE_MODE_ADV) _bleStopAdv();
-                            break;
-                        case BLE_MODE_SCAN:
-                            if (bleMode == BLE_MODE_ADV) _bleStopAdv();
-                            _bleStartScan();
-                            break;
-                        case BLE_MODE_ADV:
-                            if (bleMode == BLE_MODE_SCAN) _bleStopScan();
-                            _bleStartAdv(adv_int_min);
-                            break;
-                    }
-                    bleMode = newBleMode;
+                    uint16_t const newInterval = atoi(args[1]) << 4;  // args[1] in msec
+                    bleMode_t const orgBleMode = bleMode;
+                    bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_min);
+
+                    // do whatever to change the scan/adv timing based on `newInterval`
+
+                    bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_min);
+            } else {
+
+                bleMode_t const newBleMode = _str2bleMode(args[0]);
+                if (newBleMode) {
+                    bleMode = _changeBleMode(bleMode, newBleMode, adv_int_min);
                 }
             }
 			free(msg);
