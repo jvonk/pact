@@ -259,7 +259,7 @@ void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
         { {0xAC, 0x67, 0xB2, 0x53, 0x7F, 0x22}, "esp32-4" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0x82}, "esp32-5" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xAA}, "esp32-6" },
-        { {0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x8A}, "esp32-7" }, 
+        { {0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x8A}, "esp32-7" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1E}, "esp32-8" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xB2}, "esp32-9" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x7B, 0x3A}, "esp32-10" },
@@ -358,6 +358,12 @@ void ble_scan_task(void * ipc_void) {
 
             if (strcmp(msg, "restart")) {
                 esp_restart();
+            } else if (strcmp(msg, "echo")) {
+                char * const reply = strdup(msg);
+                if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
+                    ESP_LOGW(TAG, "measurementQ full");
+                    free(reply);
+                }
             } else {
                 bleMode_t const bleMode = _str2bleMode(msg);
                 //ESP_LOGI(TAG, "ctrl msg \"%s\", new bleMode = %d (was %d)", msg, bleMode, _bleMode);
