@@ -5,3 +5,4 @@ config.py
 .idea
 **/.vscode/
 ESP32_BLE-Scan-Johan/.vscode/
+ESP32_BLE-Scan-Johan/sdkconfig
