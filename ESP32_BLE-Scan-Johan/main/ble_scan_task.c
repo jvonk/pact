@@ -197,7 +197,7 @@ static void _bleStopAdv(void) {
             ESP_LOGI(TAG, "ERR stopping advertising");
         }
     }
-	EventBits_t bits = xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
+	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STOPPED advertising");
 }
 
