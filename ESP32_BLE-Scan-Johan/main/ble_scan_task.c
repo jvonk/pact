@@ -323,7 +323,7 @@ void ble_scan_task(void * ipc_void) {
 
 	ble_event_group = xEventGroupCreate();  // lets event handler signal completion
 
-    uint16_t adv_int_min = 0x00F0;  // dflt advertisement interval = 150 msec [n * 0.625 msec]
+    uint16_t adv_int_min = 0x00F0;  // dflt min advertisement interval = 150 msec [n * 0.625 msec]
     uint16_t scan_window = 0x0030;  // dflt scan duration = 30 msec [n * 0.625 msec]
 
     _prep4adv();
