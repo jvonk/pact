@@ -170,6 +170,23 @@
             }
         },
         {
+            "label": "Build and push to coertvonk.com",
+            "type": "shell",
+            "command": "scp ${workspaceFolder}/build/${command:espIdf.getProjectName}.bin coertvonk.com:~/public_html/jvonk/blescan/",
+            "windows": {
+                "command": "scp ${workspaceFolder}/build/${command:espIdf.getProjectName}.bin coertvonk.com:~/public_html/jvonk/blescan/"
+            },
+            "options": {
+                "env": {
+                    "PATH": "${config:idf.customExtraPaths}"
+                }
+            },
+            "dependsOn": "Build - Build project",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
             "label": "OpenOCD: Start openOCD",
             "type": "shell",
             "presentation": {

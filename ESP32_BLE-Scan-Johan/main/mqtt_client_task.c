@@ -105,8 +105,8 @@ mqtt_client_task(void * ipc) {
 
 	while (1) {
 		if (xQueueReceive(_ipc->measurementQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
-			int const msg_id = esp_mqtt_client_publish(client, topic, msg, strlen(msg), 1, 0);
-			ESP_LOGI(TAG, "MQTT Tx: \"%s\" = \"%s\" (%d)", topic, msg, msg_id);
+			esp_mqtt_client_publish(client, topic, msg, strlen(msg), 1, 0);
+			//ESP_LOGI(TAG, "MQTT Tx: \"%s\" = \"%s\" (%d)", topic, msg, msg_id);
 			free(msg);
 		}
 	}

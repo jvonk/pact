@@ -132,7 +132,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                         ESP_LOGW(TAG, "measurementQ full");
                         free(msg);
                     }
-    #if 1
+    #if 0
                 } else {
                     if (scan_result->scan_rst.ble_adv) {
                         static esp_ble_ibeacon_head_t const ibeacon_common_head = {
@@ -251,22 +251,23 @@ void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
 	typedef struct {
 		uint8_t const bda[ESP_BD_ADDR_LEN];
 		char const * const name;
-	} PACK8 knownMac_t;
-	static knownMac_t knownMacs[] = {
-		{{ 0x30, 0xae, 0xa4, 0xcc, 0x24, 0x68}, "esp32-1"},
-		{{ 0x30, 0xae, 0xa4, 0xcc, 0x32, 0x4c}, "esp32-2"},
-		{{ 0xac, 0x67, 0xb2, 0x53, 0x82, 0x88}, "esp32-3"},
-		{{ 0xac, 0x67, 0xb2, 0x53, 0x7f, 0x20}, "esp32-4"},
-		{{ 0xac, 0x67, 0xb2, 0x53, 0x84, 0x80}, "esp32-5"},
-		{{ 0xAC, 0x67, 0xB2, 0x53, 0x84, 0xA8}, "esp32-6"},
-		{{ 0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x88}, "esp32-7"},
-		{{ 0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1C}, "esp32-8"},
-		{{ 0xac, 0x67, 0xb2, 0x53, 0x84, 0xb0}, "esp32-9"},
-		{{ 0xac, 0x67, 0xb2, 0x53, 0x7b, 0x38}, "esp32-10"}
+	} PACK8 knownBrd_t;
+	static knownBrd_t knownBrds[] = {
+        { {0x30, 0xAE, 0xA4, 0xCC, 0x24, 0x6A}, "esp32-1" },
+        { {0x30, 0xAE, 0xA4, 0xCC, 0x32, 0x4E}, "esp32-2" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x82, 0x8A}, "esp32-3" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x7F, 0x22}, "esp32-4" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0x82}, "esp32-5" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xAA}, "esp32-6" },
+        { {0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x8A}, "esp32-7" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1E}, "esp32-8" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xB2}, "esp32-9" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x7B, 0x3A}, "esp32-10" },
+        { {0x30, 0xae, 0xa4, 0xcc, 0x45, 0x06}, "esp32-wrover-1" }
 	};
-	for (ii=0; ii < ARRAYSIZE(knownMacs); ii++) {
-		if (memcmp(bda, knownMacs[ii].bda, ESP_BD_ADDR_LEN) == 0) {
-			strcpy(name, knownMacs[ii].name, name_len);
+	for (uint ii=0; ii < ARRAYSIZE(knownBrds); ii++) {
+		if (memcmp(bda, knownBrds[ii].bda, ESP_BD_ADDR_LEN) == 0) {
+			strncpy(name, knownBrds[ii].name, name_len);
 			return;
 		}
 	}
@@ -274,7 +275,21 @@ void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
 			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
 }
 
+void _bda2str(uint8_t const * const bda, char * const str, size_t str_len) {
+
+    uint len = 0;
+    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
+        //ESP_LOGI(TAG, "ii %d, str_len - len = %d", ii, str_len - len);
+        len += snprintf(str + len, str_len - len, "0x%02x", bda[ii]);
+        if (ii < ESP_BD_ADDR_LEN - 1) {
+            str[len++] = ',';
+            str[len++] = ' ';
+        }
+    }
+}
+
 void ble_scan_task(void * ipc_void) {
+
 	ipc = ipc_void;
 
 	ESP_LOGI(TAG, "start");
@@ -286,10 +301,14 @@ void ble_scan_task(void * ipc_void) {
 
 	// first message to ipc->measurementQ is the BLE MAC address (rx'ed by mqtt_client_task
 
-	uint8_t const *const myBda = esp_bt_dev_get_address();
+	uint8_t const * const myBda = esp_bt_dev_get_address();
+    char brdName[40];
+    _bda2str(myBda, brdName, ARRAYSIZE(brdName));
+    ESP_LOGI(TAG, "BD_ADDR = {%s}", brdName);
 
-	char msg[12];
-	_bda2name(myBda, msg);
+    uint const msg_len = 32;
+	char * msg = malloc(msg_len);
+	_bda2name(myBda, msg, msg_len);
 
 	ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
 	if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
@@ -337,24 +356,34 @@ void ble_scan_task(void * ipc_void) {
 		if (xQueueReceive(ipc->controlQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 			// ESP32 can only do one function at a time (SCAN || ADVERTISE)
 
-            bleMode_t const bleMode = _str2bleMode(msg);
-            //ESP_LOGI(TAG, "ctrl msg \"%s\", new bleMode = %d (was %d)", msg, bleMode, _bleMode);
-            if (bleMode && bleMode != _bleMode) {
-                switch(bleMode) {
-                    case BLE_MODE_IDLE:
-                        _bleStopScan();
-                        _bleStopAdv();
-                        break;
-                    case BLE_MODE_SCAN:
-                        _bleStopAdv();
-                        _bleStartScan();
-                        break;
-                    case BLE_MODE_ADV:
-                        _bleStopScan();
-                        _bleStartAdv();
-                        break;
+            if (strcmp(msg, "restart")) {
+                esp_restart();
+            } else if (strcmp(msg, "echo")) {
+                char * const reply = strdup(msg);
+                if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
+                    ESP_LOGW(TAG, "measurementQ full");
+                    free(reply);
                 }
-                _bleMode = bleMode;
+            } else {
+                bleMode_t const bleMode = _str2bleMode(msg);
+                //ESP_LOGI(TAG, "ctrl msg \"%s\", new bleMode = %d (was %d)", msg, bleMode, _bleMode);
+                if (bleMode && bleMode != _bleMode) {
+                    switch(bleMode) {
+                        case BLE_MODE_IDLE:
+                            _bleStopScan();
+                            _bleStopAdv();
+                            break;
+                        case BLE_MODE_SCAN:
+                            _bleStopAdv();
+                            _bleStartScan();
+                            break;
+                        case BLE_MODE_ADV:
+                            _bleStopScan();
+                            _bleStartAdv();
+                            break;
+                    }
+                    _bleMode = bleMode;
+                }
             }
 			free(msg);
 		}
