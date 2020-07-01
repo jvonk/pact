@@ -20,7 +20,7 @@ menu "BLE Scan - main"
 
     config BLESCAN_MQTT_URL
         string "MQTT broker uri"
-        default "mqtt://mqtt:GjRqHdcZM5UnxJ38@mqtt.vonk:1883"
+        default "mqtt://username:passwd@mqtt.vonk:1883"
         help
             URL of the MQTT broker.  For authentication include the username
             and password.
