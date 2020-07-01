@@ -6,3 +6,4 @@ config.py
 **/.vscode/
 ESP32_BLE-Scan-Johan/.vscode/
 ESP32_BLE-Scan-Johan/sdkconfig
+ESP32_BLE-Scan-Joha/nmain/Kconfig.projbuild
