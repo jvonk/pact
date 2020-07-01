@@ -180,51 +180,56 @@ void ble_ibeacon_init(void) {
 
 static void _bleStartScan(void) {
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
-	uint32_t duration = 0;  // [sec], 0 means scan permanently
-	esp_ble_gap_start_scanning(duration);
+    {
+        uint32_t duration = 0;  // [sec], 0 means scan permanently
+        esp_ble_gap_start_scanning(duration);
+    }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STARTED scanning");
 }
 
 static void _bleStopScan(void) {
+
 	if (_bleMode != BLE_MODE_SCAN) return;
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE);
-
-	if (esp_ble_gap_stop_scanning() != ESP_OK) {
-		ESP_LOGI(TAG, "ERR stopping scanning");
-	}
+    {
+        if (esp_ble_gap_stop_scanning() != ESP_OK) {
+            ESP_LOGI(TAG, "ERR stopping scanning");
+        }
+    }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STOPPED scanning");
 }
 
-static void _bleStartAdv(void) {
+static void _bleStartAdv(uint16_t const adv_int_min) {
+
 	if (_bleMode != BLE_MODE_ADV) return;
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
+    {
+        static esp_ble_adv_params_t ble_adv_params = {
+            .adv_type = ADV_TYPE_NONCONN_IND,
+            .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
+            .channel_map = ADV_CHNL_ALL,
+            .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+        };
+        ble_adv_params.adv_int_min = adv_int_min,       // minimum advertisement interval [n * 0.625 msec]
+        ble_adv_params.adv_int_max = adv_int_min << 1,  // maximim advertisement interval [n * 0.625 msec]
 
-    static esp_ble_adv_params_t ble_adv_params = {
-        .adv_int_min = 0x00F0,  // minimum advertisement interval 150 msec [n * 0.625 msec]
-        .adv_int_max = 0x01E0,  // maximim advertisement interval 300 msec [n * 0.625 msec]
-        .adv_type = ADV_TYPE_NONCONN_IND,
-        .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-        .channel_map = ADV_CHNL_ALL,
-        .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-    };
-
-	esp_ble_gap_start_advertising(&ble_adv_params);
+        esp_ble_gap_start_advertising(&ble_adv_params);
+    }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STARTED advertising");
 }
 
 static void _bleStopAdv(void) {
+
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE);
-
-	if (esp_ble_gap_stop_advertising() != ESP_OK) {
-		ESP_LOGI(TAG, "ERR stopping advertising");
-	}
-
+    {
+        if (esp_ble_gap_stop_advertising() != ESP_OK) {
+            ESP_LOGI(TAG, "ERR stopping advertising");
+        }
+    }
 	EventBits_t bits = xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
-	if (!bits) esp_restart();  // give up
-
 	ESP_LOGI(TAG, "STOPPED advertising");
 }
 
@@ -288,6 +293,39 @@ void _bda2str(uint8_t const * const bda, char * const str, size_t str_len) {
     }
 }
 
+void _prep4adv(void) {
+
+	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
+	{
+		esp_ble_ibeacon_t ibeacon_adv_data;
+		esp_err_t status = esp_ble_config_ibeacon_data(&vendor_config, &ibeacon_adv_data);
+		if (status == ESP_OK) {
+			esp_ble_gap_config_adv_data_raw((uint8_t *)&ibeacon_adv_data, sizeof(ibeacon_adv_data));
+		} else {
+			ESP_LOGE(TAG, "Config iBeacon data failed: %s\n", esp_err_to_name(status));
+		}
+	}
+	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
+}
+
+void _prep4scan(uint16_t const scan_window) {
+
+	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
+	{
+        static esp_ble_scan_params_t ble_scan_params = {
+            .scan_type = BLE_SCAN_TYPE_ACTIVE,
+            .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
+            .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
+            .scan_duplicate = BLE_SCAN_DUPLICATE_DISABLE
+        };
+        ble_scan_params.scan_interval = scan_window + 0x20, // time between start of scans [n * 0.625 msec]
+        ble_scan_params.scan_window = scan_window,          // scan duration               [n * 0.625 msec]
+
+		esp_ble_gap_set_scan_params(&ble_scan_params);
+	}
+	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
+}
+
 void ble_scan_task(void * ipc_void) {
 
 	ipc = ipc_void;
@@ -318,55 +356,36 @@ void ble_scan_task(void * ipc_void) {
 
 	ble_event_group = xEventGroupCreate();  // lets event handler signal completion
 
-	// get ready for advertising
+    uint16_t adv_int_min = 0x00F0;  // dflt advertisement interval = 150 msec [n * 0.625 msec]
+    uint16_t scan_window = 0x0030;  // dflt scan duration = 30 msec [n * 0.625 msec]
 
-	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
-	{
-		esp_ble_ibeacon_t ibeacon_adv_data;
-		esp_err_t status = esp_ble_config_ibeacon_data(&vendor_config, &ibeacon_adv_data);
-		if (status == ESP_OK) {
-			esp_ble_gap_config_adv_data_raw((uint8_t *)&ibeacon_adv_data, sizeof(ibeacon_adv_data));
-		} else {
-			ESP_LOGE(TAG, "Config iBeacon data failed: %s\n", esp_err_to_name(status));
-		}
-	}
-	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
-
-	// get ready for scanning
-
-	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
-	{
-        static esp_ble_scan_params_t ble_scan_params = {
-            .scan_type = BLE_SCAN_TYPE_ACTIVE,
-            .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-            .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
-            .scan_interval = 0x50, // time between start of scans 50 msec [n * 0.625 msec]
-            .scan_window = 0x30,   // scan duration 30 msec [n * 0.625 msec]
-            .scan_duplicate = BLE_SCAN_DUPLICATE_DISABLE};
-
-		esp_ble_gap_set_scan_params(&ble_scan_params);
-	}
-	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
+    _prep4adv();
+    _prep4scan(scan_window);
 
 	_bleMode = BLE_MODE_ADV;
-	_bleStartAdv();
+	_bleStartAdv(adv_int_min);
 
 	while (1) {
 		char * msg;
 		if (xQueueReceive(ipc->controlQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
-			// ESP32 can only do one function at a time (SCAN || ADVERTISE)
 
             if (strcmp(msg, "restart")) {
+                char * const reply = strdup("restarting");
+                if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
+                    free(reply);
+                }
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
                 esp_restart();
+
             } else if (strcmp(msg, "echo")) {
                 char * const reply = strdup(msg);
                 if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
-                    ESP_LOGW(TAG, "measurementQ full");
                     free(reply);
                 }
+
             } else {
+    			// ESP32 can only do one function at a time (SCAN || ADVERTISE)
                 bleMode_t const bleMode = _str2bleMode(msg);
-                //ESP_LOGI(TAG, "ctrl msg \"%s\", new bleMode = %d (was %d)", msg, bleMode, _bleMode);
                 if (bleMode && bleMode != _bleMode) {
                     switch(bleMode) {
                         case BLE_MODE_IDLE:
@@ -379,7 +398,7 @@ void ble_scan_task(void * ipc_void) {
                             break;
                         case BLE_MODE_ADV:
                             _bleStopScan();
-                            _bleStartAdv();
+                            _bleStartAdv(adv_int_min);
                             break;
                     }
                     _bleMode = bleMode;
