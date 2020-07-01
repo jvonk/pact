@@ -202,8 +202,8 @@ static void _bleStartAdv(void) {
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
 
     static esp_ble_adv_params_t ble_adv_params = {
-        .adv_int_min = 0x00F0,  // 150 msec [n * 0.625 msec]
-        .adv_int_max = 0x01E0,  // 300 msec [n * 0.625 msec]
+        .adv_int_min = 0x00F0,  // minimum advertisement interval 150 msec [n * 0.625 msec]
+        .adv_int_max = 0x01E0,  // maximim advertisement interval 300 msec [n * 0.625 msec]
         .adv_type = ADV_TYPE_NONCONN_IND,
         .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
         .channel_map = ADV_CHNL_ALL,
@@ -340,8 +340,8 @@ void ble_scan_task(void * ipc_void) {
             .scan_type = BLE_SCAN_TYPE_ACTIVE,
             .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
             .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
-            .scan_interval = 0x50,
-            .scan_window = 0x30,
+            .scan_interval = 0x50, // time between start of scans 50 msec [n * 0.625 msec]
+            .scan_window = 0x30,   // scan duration 30 msec [n * 0.625 msec]
             .scan_duplicate = BLE_SCAN_DUPLICATE_DISABLE};
 
 		esp_ble_gap_set_scan_params(&ble_scan_params);
