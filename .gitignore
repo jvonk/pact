@@ -7,3 +7,6 @@ config.py
 ESP32_BLE-Scan-Johan/.vscode/
 ESP32_BLE-Scan-Johan/sdkconfig
 ESP32_BLE-Scan-Johan/main/Kconfig.projbuild
+.vscode/arduino.json
+.vscode/c_cpp_properties.json
+.vscode/settings.json
