@@ -293,6 +293,19 @@ void _prep4scan(uint16_t const scan_window) {
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 }
 
+uint _splitArgs(char * msg, char * args[], uint const args_len) {
+
+    uint ii = 0;
+    char const * const delim = " ";
+    char * save;
+    char * p = strtok_r(msg, delim, &save);
+    while (p && ii < args_len) {
+        args[ii++] = p;
+        p = strtok_r(NULL, delim, &save);
+    }
+    return ii;
+}
+
 void ble_scan_task(void * ipc_void) {
 
 	ipc = ipc_void;
@@ -336,7 +349,14 @@ void ble_scan_task(void * ipc_void) {
 		char * msg;
 		if (xQueueReceive(ipc->controlQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 
-            if (strcmp(msg, "restart")) {
+            char * args[3];
+            uint8_t argc = _splitArgs(msg, args, ARRAYSIZE(args));
+            ESP_LOGI(TAG, "argc = %d", argc);
+            for (uint ii = 0; ii < argc; ii++) {
+                ESP_LOGI(TAG, "args[%d] = %s", ii, args[ii]);
+            }
+
+            if (strcmp(args[0], "restart")) {
                 char * const reply = strdup("restarting");
                 if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
                     free(reply);
@@ -344,7 +364,7 @@ void ble_scan_task(void * ipc_void) {
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
                 esp_restart();
 
-            } else if (strcmp(msg, "echo")) {
+            } else if (strcmp(args[0], "echo")) {
                 char * const reply = strdup(msg);
                 if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
                     free(reply);
@@ -352,7 +372,7 @@ void ble_scan_task(void * ipc_void) {
 
             } else {
     			// ESP32 can only do one function at a time (SCAN || ADVERTISE)
-                bleMode_t const bleMode = _str2bleMode(msg);
+                bleMode_t const bleMode = _str2bleMode(args[0]);
                 if (bleMode && bleMode != _bleMode) {
                     switch(bleMode) {
                         case BLE_MODE_IDLE:
