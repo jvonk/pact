@@ -4,3 +4,4 @@ config.py
 .ipynb_checkpoints
 .idea
 **/.vscode/
+ESP32_BLE-Scan-Johan/.vscode/
