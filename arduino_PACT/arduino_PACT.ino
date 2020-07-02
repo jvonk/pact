@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <arduino.h>
-#include <CurieBLE.h>
+#include <CurieBLE.h> //#include <ArduinoBLE.h>
 #include <internal/BLEUtils.h>
 
 #define ARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))

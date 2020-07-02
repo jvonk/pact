@@ -1,6 +1,6 @@
 # Copyright © 2020, Johan Vonk
 # SPDX-License-Identifier: MIT
-# pip install serial paho-mqtt
+# pip install pyserial paho-mqtt
 import serial, serial.tools.list_ports, serial.threaded
 import time
 import datetime
