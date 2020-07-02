@@ -81,7 +81,7 @@ void app_main() {
 
 	_connect_to_wifi();  // waits for WiFi connection established
 
-	//xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
+	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
 
 	QueueHandle_t toMqttQ = xQueueCreate(2, sizeof(toMqttMsg_t));
 	QueueHandle_t fromMqttQ = xQueueCreate(2, sizeof(fromMqttMsg_t));

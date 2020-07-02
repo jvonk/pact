@@ -15,6 +15,7 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 #include <mqtt_client.h>
+#include <esp_ota_ops.h>
 
 #include "mqtt_client_task.h"
 #include "mqtt_msg.h"
@@ -35,6 +36,7 @@ static struct {
 } _topic;
 
 char const * _devName = NULL;
+char const * _devMAC = NULL;
 
 static esp_mqtt_client_handle_t _client;
 
@@ -62,9 +64,19 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
 
                 } else if (strncmp("who", event->data, event->data_len) == 0) {
 
-                    char payload[20 + strlen(_devName)];
-                    sprintf(payload, "{ \"devName\": \"%s\" }", _devName);
+                    esp_partition_t const * const running_part = esp_ota_get_running_partition();
+                    esp_app_desc_t running_app_info;
+                    esp_ota_get_partition_description(running_part, &running_app_info);
+
+                    uint const payloadLen = 100 + sizeof(running_app_info.project_name) + sizeof(running_app_info.version) + sizeof(running_app_info.date) + sizeof(running_app_info.time);
+                    char * const payload = malloc(payloadLen);
+
+                    snprintf(payload, payloadLen, "{ \"device\": \"%s\", \"MAC\": \"%s\", \"version\": \"%s.%s\", \"date\": \"%s %s\" }", _devName, _devMAC,
+                             running_app_info.project_name, running_app_info.version,
+                             running_app_info.date, running_app_info.time);
+
                     esp_mqtt_client_publish(event->client, _topic.data, payload, strlen(payload), 1, 0);
+                    free(payload);
 
                 } else {  // forward to ble_scan_task
 
@@ -113,6 +125,17 @@ mqtt_client_task(void * ipc) {
 
 	toMqttMsg_t msg;
 	if (xQueueReceive(_ipc->toMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
+        if (msg.dataType != TO_MQTT_MSGTYPE_DEVMAC) {
+            ESP_LOGE(TAG, "unexpected dataType(%d)", msg.dataType);
+            esp_restart();
+        }
+        _devMAC = msg.data;
+		// do not free(msg.data) as we keep refering to it
+    }
+
+	// second message from _ipc->toMqttQ is the BLE Device name (tx'd by ble_scan_task)
+
+	if (xQueueReceive(_ipc->toMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 
         if (msg.dataType != TO_MQTT_MSGTYPE_DEVNAME) {
             ESP_LOGE(TAG, "unexpected dataType(%d)", msg.dataType);
@@ -150,6 +173,7 @@ mqtt_client_task(void * ipc) {
                     //ESP_LOGI(TAG, "%s ctrl %s \"%s\"", __func__, _topic.data, msg.data);
         			esp_mqtt_client_publish(_client, _topic.ctrl, msg.data, strlen(msg.data), 1, 0);
                     break;
+                case TO_MQTT_MSGTYPE_DEVMAC:
                 case TO_MQTT_MSGTYPE_DEVNAME:
                     ESP_LOGE(TAG, "unexpected dataType(%d)", msg.dataType);
                     break;

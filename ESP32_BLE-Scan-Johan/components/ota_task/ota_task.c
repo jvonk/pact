@@ -126,7 +126,7 @@ void ota_task(void * pvParameter)
                     esp_app_desc_t running_app_info;
                     if (esp_ota_get_partition_description(running_part, &running_app_info) == ESP_OK) {
                         ESP_LOGI(TAG, "Firmware running:   %s.%s (%s %s)",
-                            running_app_info.project_name, running_app_info.version, new_app_info.date, new_app_info.time);
+                            running_app_info.project_name, running_app_info.version, running_app_info.date, running_app_info.time);
                     }
                     esp_partition_t const * const last_invalid_app = esp_ota_get_last_invalid_partition();
                     esp_app_desc_t invalid_app_info;

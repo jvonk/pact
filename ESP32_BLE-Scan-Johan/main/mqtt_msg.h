@@ -3,6 +3,7 @@
 typedef enum toMqttMsgType_t {
     TO_MQTT_MSGTYPE_CTRL,
     TO_MQTT_MSGTYPE_DATA,
+    TO_MQTT_MSGTYPE_DEVMAC,
     TO_MQTT_MSGTYPE_DEVNAME,
 } toMqttMsgType_t;
 

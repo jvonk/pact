@@ -52,6 +52,19 @@ typedef enum {  // ESP32 can only do one function at a time (SCAN || ADVERTISE)
 
 extern esp_ble_ibeacon_vendor_t vendor_config;
 
+char *
+_bla2str(uint8_t const * const bda, char * const str) {
+
+    uint len = 0;
+    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
+        len += sprintf(str + len, "%02x", bda[ii]);
+        if (ii < ESP_BD_ADDR_LEN - 1) {
+            str[len++] = ':';
+        }
+    }
+    return str;
+}
+
 static void
 _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 
@@ -325,19 +338,35 @@ ble_scan_task(void * ipc_void) {
 	esp_bt_controller_enable(ESP_BT_MODE_BLE);
 	_initIbeacon();
 
-	// first message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
+    // first  message to ipc->toMqttQ is the MAC address (rx'ed by mqtt_client_task)
+
+    uint8_t const * const bda = esp_bt_dev_get_address();
+    {
+        char * const bdaStr = malloc(ESP_BD_ADDR_LEN * 3);
+        toMqttMsg_t msg = {
+            .dataType = TO_MQTT_MSGTYPE_DEVMAC,
+            .data = _bla2str(bda, bdaStr)
+        };
+        if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
+            ESP_LOGE(TAG, "toMqttQ full (1st)");  // should never happen, since its the first msg
+            free(msg.data);
+        }
+	}
+
+	// second message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
 
 	char devName[32];
-	_bda2devname(esp_bt_dev_get_address(), devName, ARRAYSIZE(devName));
-
-    toMqttMsg_t msg = {
-        .dataType = TO_MQTT_MSGTYPE_DEVNAME,
-        .data = strdup(devName)
-    };
-	if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
-		ESP_LOGE(TAG, "toMqttQ full (1st)");  // should never happen, since its the first msg
-		free(msg.data);
-	}
+	_bda2devname(bda, devName, ARRAYSIZE(devName));
+    {
+        toMqttMsg_t msg = {
+            .dataType = TO_MQTT_MSGTYPE_DEVNAME,
+            .data = strdup(devName)
+        };
+        if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
+            ESP_LOGE(TAG, "toMqttQ full (2nd)");  // should never happen, since its the first msg
+            free(msg.data);
+        }
+    }
 
 	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 
