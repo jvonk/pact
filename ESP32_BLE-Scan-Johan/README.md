@@ -54,6 +54,7 @@ mosquitto_pub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl" -m "ech
 Other control messages are:
 - `restart`, to restart the ESP32 (and check for OTA updates)
 - `who`, can be used for device discovery when sent to the group
+- `int N`, change scan/adv interval to N milliseconds
 
 ### Scan results
 
