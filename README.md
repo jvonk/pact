@@ -61,7 +61,7 @@ optional arguments:
 ## Configuration
 The configuration file is of the YAML format. It is provided with a default configuration which you should change to suit your needs. You will need to reference in-line comments and external module documentation to fully understand all configuration options. 
 
-The configuration YAML will only be used if specified as a commadn line argument. Many indiviudal configuration options can be overwritten by command line provided arguments.
+The configuration YAML will only be used if specified as a command line argument. Many individual configuration options can be overwritten by command line provided arguments.
 
 ```yaml
 # Configuration file for piPACT reference collection software
