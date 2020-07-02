@@ -1,10 +1,9 @@
 config.py
 **/build/
 **/sdkconfig
-.ipynb_checkpoints
-.idea
-ESP32_BLE-Scan-Johan/sdkconfig
+.ipynb_checkpoints/
+.idea/
+ESP32_BLE/sdkconfig
 ESP32_BLE-Scan-Johan/main/Kconfig.projbuild
-.vscode/arduino.json
-.vscode/c_cpp_properties.json
-.vscode/settings.json
+.vscode/
+__pycache__
