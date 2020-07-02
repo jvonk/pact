@@ -19,7 +19,9 @@
 #include <ota_task.h>
 #include <reset_task.h>
 #include <ble_scan_task.h>
-#include <mqtt_client_task.h>
+
+#include "mqtt_client_task.h"
+#include "mqtt_msg.h"
 
 static char const *const TAG = "main_app";
 
@@ -79,20 +81,20 @@ void app_main() {
 
 	_connect_to_wifi();  // waits for WiFi connection established
 
-	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
+	//xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
 
-	QueueHandle_t measurementQ = xQueueCreate(2, sizeof(char *));
-	QueueHandle_t controlQ = xQueueCreate(2, sizeof(char *));
+	QueueHandle_t toMqttQ = xQueueCreate(2, sizeof(toMqttMsg_t));
+	QueueHandle_t fromMqttQ = xQueueCreate(2, sizeof(fromMqttMsg_t));
 
-	if (measurementQ && controlQ) {
+	if (toMqttQ && fromMqttQ) {
 		static ble_scan_task_ipc_t ble_scan_task_ipc;
-		ble_scan_task_ipc.controlQ = controlQ;          // rx
-		ble_scan_task_ipc.measurementQ = measurementQ;  // tx
+		ble_scan_task_ipc.fromMqttQ = fromMqttQ;          // rx
+		ble_scan_task_ipc.toMqttQ = toMqttQ;  // tx
 		xTaskCreate(&ble_scan_task, "ble_scan_task", 2 * 4096, &ble_scan_task_ipc, 5, NULL);
 
 		static mqtt_client_task_ipc_t mqtt_client_task_ipc;
-		mqtt_client_task_ipc.controlQ = controlQ;          // tx
-		mqtt_client_task_ipc.measurementQ = measurementQ;  // rx
+		mqtt_client_task_ipc.fromMqttQ = fromMqttQ;          // tx
+		mqtt_client_task_ipc.toMqttQ = toMqttQ;  // rx
 		xTaskCreate(&mqtt_client_task, "mqtt_client_task", 2 * 4096, &mqtt_client_task_ipc, 5, NULL);
 	}
 }

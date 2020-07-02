@@ -3,8 +3,8 @@
 #pragma once
 
 typedef struct {
-    QueueHandle_t measurementQ;
-    QueueHandle_t controlQ;
+    QueueHandle_t toMqttQ;
+    QueueHandle_t fromMqttQ;
 } ble_scan_task_ipc_t;
 
 void ble_scan_task(void * ipc);

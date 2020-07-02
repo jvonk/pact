@@ -24,6 +24,7 @@
 #include <esp_ibeacon_api.h>
 
 #include "ble_scan_task.h"
+#include "mqtt_msg.h"
 
 #define ARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))
 #define ALIGN( type ) __attribute__((aligned( __alignof__( type ) )))
@@ -52,7 +53,7 @@ typedef enum {  // ESP32 can only do one function at a time (SCAN || ADVERTISE)
 extern esp_ble_ibeacon_vendor_t vendor_config;
 
 static void
-_gapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+_bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 
 	esp_err_t err;
 
@@ -99,25 +100,28 @@ _gapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
             case ESP_GAP_SEARCH_INQ_RES_EVT:
                 if (esp_ble_is_ibeacon_packet(scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len)) {
 
-                    // format iBeacon scan result as JSON and forward to ipc->measurementQ
+                    // format iBeacon scan result as JSON and forward to ipc->toMqttQ
 
                     esp_ble_ibeacon_t const * const ibeacon_data = (esp_ble_ibeacon_t *)(scan_result->scan_rst.ble_adv);
 
                     uint len = 0;
                     char payload[256];
 
-                    len += sprintf(payload + len, "{ \"Address\": \"");
+                    len += sprintf(payload + len, "{ \"address\": \"");
                     for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
                         len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
                     }
                     len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
                     len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
 
-                    char * const msg = strdup(payload);
-                    //ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
-                    if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
-                        ESP_LOGW(TAG, "measurementQ full");
-                        free(msg);
+                    //ESP_LOGI(TAG, "%s %s", __func__, payload);
+                    toMqttMsg_t msg = {
+                        .dataType = TO_MQTT_MSGTYPE_DATA,
+                        .data = strdup(payload)
+                    };
+                    if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
+                        ESP_LOGW(TAG, "toMqttQ full");
+                        free(msg.data);
                     }
                 }
                 break;
@@ -137,12 +141,27 @@ _initIbeacon(void) {
 	esp_bluedroid_init();
 	esp_bluedroid_enable();
 
-	esp_err_t status = esp_ble_gap_register_callback(_gapHandler);
+	esp_err_t status = esp_ble_gap_register_callback(_bleGapHandler);
 	if (status != ESP_OK) ESP_LOGE(TAG, "gap register error: %s", esp_err_to_name(status));
 }
 
 static void
-_bleStartScan(void) {
+_bleStartScan(uint16_t const scan_window) {
+
+	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
+	{
+        static esp_ble_scan_params_t ble_scan_params = {
+            .scan_type = BLE_SCAN_TYPE_ACTIVE,
+            .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
+            .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
+            .scan_duplicate = BLE_SCAN_DUPLICATE_DISABLE
+        };
+        ble_scan_params.scan_interval = scan_window + 0x20, // time between start of scans [n * 0.625 msec]
+        ble_scan_params.scan_window = scan_window,          // scan duration               [n * 0.625 msec]
+
+		esp_ble_gap_set_scan_params(&ble_scan_params);
+	}
+	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
     {
@@ -167,7 +186,19 @@ _bleStopScan(void) {
 }
 
 static void
-_bleStartAdv(uint16_t const adv_int_min) {
+_bleStartAdv(uint16_t const adv_int_max) {
+
+	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
+	{
+		esp_ble_ibeacon_t ibeacon_adv_data;
+		esp_err_t status = esp_ble_config_ibeacon_data(&vendor_config, &ibeacon_adv_data);
+		if (status == ESP_OK) {
+			esp_ble_gap_config_adv_data_raw((uint8_t *)&ibeacon_adv_data, sizeof(ibeacon_adv_data));
+		} else {
+			ESP_LOGE(TAG, "Config iBeacon data failed: %s\n", esp_err_to_name(status));
+		}
+	}
+	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
     {
@@ -177,8 +208,8 @@ _bleStartAdv(uint16_t const adv_int_min) {
             .channel_map = ADV_CHNL_ALL,
             .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
         };
-        ble_adv_params.adv_int_min = adv_int_min,       // minimum advertisement interval [n * 0.625 msec]
-        ble_adv_params.adv_int_max = adv_int_min << 1,  // maximim advertisement interval [n * 0.625 msec]
+        ble_adv_params.adv_int_min = adv_int_max >> 1, // minimum advertisement interval [n * 0.625 msec]
+        ble_adv_params.adv_int_max = adv_int_max,      // maximim advertisement interval [n * 0.625 msec]
 
         esp_ble_gap_start_advertising(&ble_adv_params);
     }
@@ -200,7 +231,7 @@ _bleStopAdv(void) {
 }
 
 static bleMode_t
-_str2bleMode(char const * const msg) {
+_str2bleMode(char const * const str) {
 
     typedef struct {
         char * str;
@@ -212,7 +243,7 @@ _str2bleMode(char const * const msg) {
         { "adv", BLE_MODE_ADV},
     };
     for (uint ii = 0; ii < ARRAYSIZE(modes); ii++) {
-        if (strcmp(msg, modes[ii].str) == 0) {
+        if (strcmp(str, modes[ii].str) == 0) {
             return modes[ii].bleMode;
         }
     }
@@ -248,48 +279,13 @@ _bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
 			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
 }
 
-static void
-_prep4adv(void) {
-
-	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
-	{
-		esp_ble_ibeacon_t ibeacon_adv_data;
-		esp_err_t status = esp_ble_config_ibeacon_data(&vendor_config, &ibeacon_adv_data);
-		if (status == ESP_OK) {
-			esp_ble_gap_config_adv_data_raw((uint8_t *)&ibeacon_adv_data, sizeof(ibeacon_adv_data));
-		} else {
-			ESP_LOGE(TAG, "Config iBeacon data failed: %s\n", esp_err_to_name(status));
-		}
-	}
-	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
-}
-
-static void
-_prep4scan(uint16_t const scan_window) {
-
-	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
-	{
-        static esp_ble_scan_params_t ble_scan_params = {
-            .scan_type = BLE_SCAN_TYPE_ACTIVE,
-            .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-            .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
-            .scan_duplicate = BLE_SCAN_DUPLICATE_DISABLE
-        };
-        ble_scan_params.scan_interval = scan_window + 0x20, // time between start of scans [n * 0.625 msec]
-        ble_scan_params.scan_window = scan_window,          // scan duration               [n * 0.625 msec]
-
-		esp_ble_gap_set_scan_params(&ble_scan_params);
-	}
-	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
-}
-
 static uint
-_splitArgs(char * msg, char * args[], uint const args_len) {
+_splitArgs(char * data, char * args[], uint const args_len) {
 
     uint ii = 0;
     char const * const delim = " ";
     char * save;
-    char * p = strtok_r(msg, delim, &save);
+    char * p = strtok_r(data, delim, &save);
     while (p && ii < args_len) {
         args[ii++] = p;
         p = strtok_r(NULL, delim, &save);
@@ -298,23 +294,23 @@ _splitArgs(char * msg, char * args[], uint const args_len) {
 }
 
 static bleMode_t
-_changeBleMode(bleMode_t const current, bleMode_t const new, uint16_t const adv_int_min) {
+_changeBleMode(bleMode_t const current, bleMode_t const new, uint16_t const adv_int_max) {
 
     if (new == current) {
         return new;
     }
-    switch(current) {
+    switch(new) {
         case BLE_MODE_IDLE:
             if (current == BLE_MODE_SCAN) _bleStopScan();
             if (current == BLE_MODE_ADV) _bleStopAdv();
             break;
         case BLE_MODE_SCAN:
             if (current == BLE_MODE_ADV) _bleStopAdv();
-            _bleStartScan();
+            _bleStartScan(adv_int_max + 0x04);
             break;
         case BLE_MODE_ADV:
             if (current == BLE_MODE_SCAN) _bleStopScan();
-            _bleStartAdv(adv_int_min);
+            _bleStartAdv(adv_int_max);
             break;
     }
     return new;
@@ -332,71 +328,54 @@ ble_scan_task(void * ipc_void) {
 	esp_bt_controller_enable(ESP_BT_MODE_BLE);
 	_initIbeacon();
 
-	// first message to ipc->measurementQ is the device name (rx'ed by mqtt_client_task)
+	// first message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
 
-    uint const msg_len = 32;
-	char * msg = malloc(msg_len);
-	_bda2devname(esp_bt_dev_get_address(), msg, msg_len);
+	char devName[32];
+	_bda2devname(esp_bt_dev_get_address(), devName, ARRAYSIZE(devName));
 
-	ESP_LOGI(TAG, "measurementQ Tx: \"%s\"", msg);
-	if (xQueueSendToBack(ipc->measurementQ, &msg, 0) != pdPASS) {
-		ESP_LOGE(TAG, "measurementQ full (1st)");  // should never happen, since its the first msg
-		free(msg);
+	ESP_LOGI(TAG, "toMqttQ Tx devName: \"%s\"", devName);
+    toMqttMsg_t msg = {
+        .dataType = TO_MQTT_MSGTYPE_DEVNAME,
+        .data = strdup(devName)
+    };
+	if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
+		ESP_LOGE(TAG, "toMqttQ full (1st)");  // should never happen, since its the first msg
+		free(msg.data);
 	}
 
 	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 
-    uint16_t adv_int_min = 0x00F0;  // dflt min advertisement interval = 150 msec [n * 0.625 msec]
-    uint16_t scan_window = 0x0030;  // dflt scan duration = 30 msec [n * 0.625 msec]
-
-    _prep4adv();
-    _prep4scan(scan_window);
-
-    bleMode_t bleMode = BLE_MODE_ADV;
-	_bleStartAdv(adv_int_min);
+    uint16_t adv_int_max = 30 << 4;  // 30 msec  [n * 0.625 msec]
+    bleMode_t bleMode = _changeBleMode(BLE_MODE_IDLE, BLE_MODE_ADV, adv_int_max);
 
 	while (1) {
-		char * msg;
-		if (xQueueReceive(ipc->controlQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 
-            char * args[3];
-            uint8_t argc = _splitArgs(msg, args, ARRAYSIZE(args));
-            ESP_LOGI(TAG, "argc = %d", argc);
-            for (uint ii = 0; ii < argc; ii++) {
-                ESP_LOGI(TAG, "args[%d] = %s", ii, args[ii]);
+		fromMqttMsg_t msg;
+		if (xQueueReceive(ipc->fromMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
+
+            if (msg.dataType != FROM_MQTT_MSGTYPE_CTRL) {
+                ESP_LOGE(TAG, "unexpected dataType (%d)", msg.dataType);
             }
+            char * args[3];
+            uint8_t argc = _splitArgs(msg.data, args, ARRAYSIZE(args));
 
-            if (strcmp(args[0], "restart") == 0) {
-                char * const reply = strdup("restarting");
-                if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
-                    free(reply);
-                }
-                vTaskDelay(1000 / portTICK_PERIOD_MS);
-                esp_restart();
+            if (strcmp(args[0], "int") == 0 && argc >= 2) {
 
-            } else if (strcmp(args[0], "echo") == 0) {
-                char * const reply = strdup(msg);
-                if (xQueueSendToBack(ipc->measurementQ, &reply, 0) != pdPASS) {
-                    free(reply);
-                }
+                    bleMode_t const orgBleMode = bleMode;  // args[1] in msec
+                    bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);
 
-            } else if (strcmp(args[0], "int") == 0) {
+                    adv_int_max = atoi(args[1]) << 4;  // args[1] should be in msec
 
-                    uint16_t const newInterval = atoi(args[1]) << 4;  // args[1] in msec
-                    bleMode_t const orgBleMode = bleMode;
-                    bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_min);
+                    bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_max);
 
-                    // do whatever to change the scan/adv timing based on `newInterval`
-
-                    bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_min);
             } else {
 
                 bleMode_t const newBleMode = _str2bleMode(args[0]);
                 if (newBleMode) {
-                    bleMode = _changeBleMode(bleMode, newBleMode, adv_int_min);
+                    bleMode = _changeBleMode(bleMode, newBleMode, adv_int_max);
                 }
             }
-			free(msg);
+			free(msg.data);
 		}
 	}
 }

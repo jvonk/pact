@@ -1,3 +1,6 @@
+/**
+ * @brief Pull Over the Air (OTA) update from https server
+ **/
 /* based on PD/CC0 licensed https://github.com/espressif/esp-idf/blob/master/examples/system/ota/native_ota_example/main/native_ota_example.c
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)

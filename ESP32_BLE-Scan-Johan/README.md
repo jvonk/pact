@@ -53,22 +53,22 @@ mosquitto_pub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl" -m "ech
 
 Other control messages are:
 - `restart`, to restart the ESP32 (and check for OTA updates)
-- `echo`, can be used for device discovery when sent to the group
+- `who`, can be used for device discovery when sent to the group
 
 ### Scan results
 
 Scan results are reported on MQTT topic:
-- `blescan/ibeacon/DEVNAME`, where `DEVNAME` is either:
+- `blescan/data/DEVNAME`, where `DEVNAME` is either:
    - the device name, such as `esp32-1`, or
    - `esp32_XXXX` where the `XXXX` are the last digits of the BLE hardware address.
 
 To listen to all scan results, use e.g.
 ```
-mosquitto_sub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ibeacon/#" -v
+mosquitto_sub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/data/#" -v
 ```
 where `#` is a wildcard character.
 
-## Imporvements
+## Improvements
 
 Make resiliant towards WiFi and MQTT outages.
 
