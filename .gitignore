@@ -1,9 +1,9 @@
 config.py
-**/build/
-**/sdkconfig
+build/
+sdkconfig/
 .ipynb_checkpoints/
 .idea/
-ESP32_BLE/sdkconfig
-ESP32_BLE-Scan-Johan/main/Kconfig.projbuild
+ESP32_PACT/sdkconfig
+ESP32_PACT/main/Kconfig.projbuild
 .vscode/
-__pycache__
+__pycache__/

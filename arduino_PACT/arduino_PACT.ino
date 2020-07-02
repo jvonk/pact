@@ -61,16 +61,12 @@ void bleCentralDiscoverHandler(BLEDevice peripheral) {
         if (peripheral.getManufacturerData(manu_data, manu_data_length) && manu_data_length >= sizeof(iBeacon.header) && memcmp(manu_data, iBeacon.header, sizeof(iBeacon.header)) == 0) {
             char json[256];
             int len = 0;
-            //char address[BD_ADDR_LEN * 2 + 1];
-            //removeColons(peripheral.address().c_str(), address);
             char const * const address = peripheral.address().c_str();
 
             int8_t pwr = 0;
             if (manu_data_length >= sizeof(iBeacon)) {
                 pwr =(int8_t)manu_data[offsetof(iBeacon_t, txpwr)];
             }
-
-            //len += sprintf(json + len, "%s, ", _bdaStr);
 
             len += sprintf(json + len, "%s ", _devName);
             len += sprintf(json + len, "{ \"Address\": \"%s\"", address);
@@ -101,16 +97,7 @@ void _bda2name(uint8_t const * const bda, char * const name, size_t name_len) {
         { {0x98, 0x4f, 0xee, 0x0d, 0x04, 0x8e}, "curie101-4"},
         { {0x98, 0x4f, 0xee, 0x0d, 0x04, 0xa4}, "curie101-5"},
         { {0x98, 0x4f, 0xee, 0x0d, 0x0f, 0x34}, "curie101-6"},
-        { {0x98, 0x4f, 0xee, 0x0d, 0x11, 0x4c}, "curie101-7"},
-#if 0
-		{ {0x53, 0x11, 0x0d, 0xee, 0x4f, 0x98}, "curie101-1"},
-		{ {0x38, 0x0e, 0x0d, 0xee, 0x4f, 0x98}, "curie101-2"},
-		{ {0xc6, 0x0e, 0x0d, 0xee, 0x4f, 0x98}, "curie101-3"},
-		{ {0x8e, 0x04, 0x0d, 0xee, 0x4f, 0x98}, "curie101-4"},
-		{ {0xa4, 0x04, 0x0d, 0xee, 0x4f, 0x98}, "curie101-5"},
-		{ {0x34, 0x0f, 0x0d, 0xee, 0x4f, 0x98}, "curie101-6"},
-		{ {0x4c, 0x11, 0x0d, 0xee, 0x4f, 0x98}, "curie101-7"}
-#endif
+        { {0x98, 0x4f, 0xee, 0x0d, 0x11, 0x4c}, "curie101-7"}
 	};
 
 	for (uint ii=0; ii < ARRAYSIZE(knownBrds); ii++) {

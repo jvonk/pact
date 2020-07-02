@@ -23,9 +23,6 @@ def read_serial(portName, queue):
     while ser:
         received = ser.readline().decode("ASCII")[:-1]
 
-        #print(received.decode("ASCII"), end='')
-        #print("r", ":".join("{:02x}".format(ord(c)) for c in received.decode("ASCII")))
-
         if re.match(r".* \{.*\}$", received):
             queue.put(received)
         else:
