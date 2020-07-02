@@ -71,75 +71,71 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 	esp_err_t err;
 
 	switch (event) {
-	case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
-		if ((err = param->adv_start_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
-			xEventGroupSetBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
-		} else {
-			ESP_LOGE(TAG, "Adv start failed: %s", esp_err_to_name(err));
-		}
-		break;
-	case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
-		xEventGroupSetBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
-		break;
-	case ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT:
-		if ((err = param->adv_stop_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
-			xEventGroupSetBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE);
-		} else {
-			ESP_LOGE(TAG, "Adv stop failed: %s", esp_err_to_name(err));
-		}
-		break;
-
-	case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-		xEventGroupSetBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
-		break;
-	case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
-		if ((err = param->scan_start_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
-			xEventGroupSetBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
-		} else {
-			ESP_LOGE(TAG, "Scan start failed: %s", esp_err_to_name(err));
-		}
-		break;
-	case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
-		if ((err = param->scan_stop_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
-			xEventGroupSetBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE);
-		} else {
-			ESP_LOGE(TAG, "Scan stop failed: %s", esp_err_to_name(err));
-		}
-		break;
-
-	case ESP_GAP_BLE_SCAN_RESULT_EVT: {
-		esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
-		switch (scan_result->scan_rst.search_evt) {
-            case ESP_GAP_SEARCH_INQ_RES_EVT:
-                if (esp_ble_is_ibeacon_packet(scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len)) {
-
-                    // format iBeacon scan result as JSON and forward to ipc->toMqttQ
-
-                    esp_ble_ibeacon_t const * const ibeacon_data = (esp_ble_ibeacon_t *)(scan_result->scan_rst.ble_adv);
-
-                    uint len = 0;
-                    char payload[256];
-
-                    len += sprintf(payload + len, "{ \"address\": \"");
-                    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
-                        len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
-                    }
-                    len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
-                    len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
-
-                    toMqttMsg_t msg = {
-                        .dataType = TO_MQTT_MSGTYPE_DATA,
-                        .data = strdup(payload)
-                    };
-                    if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
-                        free(msg.data);
-                    }
-                }
-                break;
-            default:
-                break;
+        case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
+            if ((err = param->adv_start_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
+                xEventGroupSetBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE);
+            } else {
+                ESP_LOGE(TAG, "Adv start failed: %s", esp_err_to_name(err));
             }
             break;
+        case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
+            xEventGroupSetBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
+            break;
+        case ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT:
+            if ((err = param->adv_stop_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
+                xEventGroupSetBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE);
+            } else {
+                ESP_LOGE(TAG, "Adv stop failed: %s", esp_err_to_name(err));
+            }
+            break;
+
+        case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
+            xEventGroupSetBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE);
+            break;
+        case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
+            if ((err = param->scan_start_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
+                xEventGroupSetBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
+            } else {
+                ESP_LOGE(TAG, "Scan start failed: %s", esp_err_to_name(err));
+            }
+            break;
+        case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
+            if ((err = param->scan_stop_cmpl.status) == ESP_BT_STATUS_SUCCESS) {
+                xEventGroupSetBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE);
+            } else {
+                ESP_LOGE(TAG, "Scan stop failed: %s", esp_err_to_name(err));
+            }
+            break;
+
+        case ESP_GAP_BLE_SCAN_RESULT_EVT: {
+            esp_ble_gap_cb_param_t * const scan_result = (esp_ble_gap_cb_param_t *)param;
+
+            if (scan_result->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT &&
+                esp_ble_is_ibeacon_packet(scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len)) {
+
+                // format iBeacon scan result as JSON
+
+                esp_ble_ibeacon_t const * const ibeacon_data = (esp_ble_ibeacon_t *)(scan_result->scan_rst.ble_adv);
+
+                uint len = 0;
+                char payload[256];
+                len += sprintf(payload + len, "{ \"address\": \"");
+                for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
+                    len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
+                }
+                len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
+                len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
+
+                //  forward to ipc->toMqttQ
+
+                toMqttMsg_t msg = {
+                    .dataType = TO_MQTT_MSGTYPE_DATA,
+                    .data = strdup(payload)
+                };
+                if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
+                    free(msg.data);
+                }
+            }
         }
         default:
             break;
@@ -342,7 +338,7 @@ ble_scan_task(void * ipc_void) {
 
     uint8_t const * const bda = esp_bt_dev_get_address();
     {
-        char * const bdaStr = malloc(ESP_BD_ADDR_LEN * 3);
+        char * const bdaStr = malloc(BLE_DEVMAC_LEN);
         toMqttMsg_t msg = {
             .dataType = TO_MQTT_MSGTYPE_DEVMAC,
             .data = _bla2str(bda, bdaStr)
@@ -355,8 +351,8 @@ ble_scan_task(void * ipc_void) {
 
 	// second message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
 
-	char devName[32];
-	_bda2devname(bda, devName, ARRAYSIZE(devName));
+	char devName[BLE_DEVNAME_LEN];
+	_bda2devname(bda, devName, BLE_DEVNAME_LEN);
     {
         toMqttMsg_t msg = {
             .dataType = TO_MQTT_MSGTYPE_DEVNAME,

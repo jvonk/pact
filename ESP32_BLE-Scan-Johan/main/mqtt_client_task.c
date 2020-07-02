@@ -68,10 +68,12 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
                     esp_app_desc_t running_app_info;
                     esp_ota_get_partition_description(running_part, &running_app_info);
 
-                    uint const payloadLen = 100 + sizeof(running_app_info.project_name) + sizeof(running_app_info.version) + sizeof(running_app_info.date) + sizeof(running_app_info.time);
+                    char * format = "{ \"device\": \"%s\", \"address\": \"%s\", \"version\": \"%s.%s\", \"date\": \"%s %s\" }";
+                    uint const wiggleRoom = 20;
+                    uint const payloadLen = strlen(format) + BLE_DEVNAME_LEN + BLE_DEVMAC_LEN + sizeof(running_app_info.project_name) + sizeof(running_app_info.version) + sizeof(running_app_info.date) + sizeof(running_app_info.time) + wiggleRoom;
                     char * const payload = malloc(payloadLen);
 
-                    snprintf(payload, payloadLen, "{ \"device\": \"%s\", \"MAC\": \"%s\", \"version\": \"%s.%s\", \"date\": \"%s %s\" }", _devName, _devMAC,
+                    snprintf(payload, payloadLen, format, _devName, _devMAC,
                              running_app_info.project_name, running_app_info.version,
                              running_app_info.date, running_app_info.time);
 

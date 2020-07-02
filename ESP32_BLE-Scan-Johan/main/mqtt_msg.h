@@ -20,3 +20,6 @@ typedef struct fromMqttMsg_t {
     fromMqttMsgType_t dataType;
     char * data;  // must be freed by recipient
 } fromMqttMsg_t;
+
+#define BLE_DEVNAME_LEN (32)
+#define BLE_DEVMAC_LEN (6 * 3)
