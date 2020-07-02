@@ -66,7 +66,7 @@ static bool _versions_match(esp_app_desc_t const * const desc1, esp_app_desc_t c
 
 void ota_task(void * pvParameter)
 {
-    ESP_LOGI(TAG, "Starting OTA");
+    ESP_LOGI(TAG, "Starting OTA update (%s)", CONFIG_BLESCAN_OTA_FIRMWARE_URL);
 
     esp_partition_t const * const configured_part = esp_ota_get_boot_partition();
     esp_partition_t const * const running_part = esp_ota_get_running_partition();
@@ -117,8 +117,6 @@ void ota_task(void * pvParameter)
                 esp_app_desc_t new_app_info;
                 if (data_read > sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t)) {
 
-// test to see if this is firmware, or just a place holder page
-
                     memcpy(&new_app_info, &ota_write_data[sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)], sizeof(esp_app_desc_t));
                     ESP_LOGI(TAG, "Firmware on server: %s.%s (%s %s)",
                     new_app_info.project_name, new_app_info.version, new_app_info.date, new_app_info.time);
@@ -162,7 +160,7 @@ void ota_task(void * pvParameter)
                 }
             }
             if (esp_ota_write( update_handle, (const void *)ota_write_data, data_read) != ESP_OK) {
-                ESP_LOGE(TAG, "esp_ota_write err");
+                ESP_LOGE(TAG, "esp_ota_write err, is OTA partition large enough?");
                 _http_cleanup(client);
                 _delete_task();
             }
