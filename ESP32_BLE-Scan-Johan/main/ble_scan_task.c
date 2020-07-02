@@ -114,13 +114,11 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
                     len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
                     len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
 
-                    //ESP_LOGI(TAG, "%s %s", __func__, payload);
                     toMqttMsg_t msg = {
                         .dataType = TO_MQTT_MSGTYPE_DATA,
                         .data = strdup(payload)
                     };
                     if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
-                        ESP_LOGW(TAG, "toMqttQ full");
                         free(msg.data);
                     }
                 }
@@ -321,7 +319,6 @@ ble_scan_task(void * ipc_void) {
 
 	ipc = ipc_void;
 
-	ESP_LOGI(TAG, "starting");
 	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 	esp_bt_controller_init(&bt_cfg);
@@ -333,7 +330,6 @@ ble_scan_task(void * ipc_void) {
 	char devName[32];
 	_bda2devname(esp_bt_dev_get_address(), devName, ARRAYSIZE(devName));
 
-	ESP_LOGI(TAG, "toMqttQ Tx devName: \"%s\"", devName);
     toMqttMsg_t msg = {
         .dataType = TO_MQTT_MSGTYPE_DEVNAME,
         .data = strdup(devName)
