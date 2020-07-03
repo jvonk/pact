@@ -68,7 +68,7 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
                     esp_app_desc_t running_app_info;
                     esp_ota_get_partition_description(running_part, &running_app_info);
 
-                    char * format = "{ \"device\": \"%s\", \"address\": \"%s\", \"version\": \"%s.%s\", \"date\": \"%s %s\" }";
+                    char * format = "{ \"name\": \"%s\", \"address\": \"%s\", \"version\": \"%s.%s\", \"date\": \"%s %s\" }";
                     uint const wiggleRoom = 20;
                     uint const payloadLen = strlen(format) + BLE_DEVNAME_LEN + BLE_DEVMAC_LEN + sizeof(running_app_info.project_name) + sizeof(running_app_info.version) + sizeof(running_app_info.date) + sizeof(running_app_info.time) + wiggleRoom;
                     char * const payload = malloc(payloadLen);
@@ -122,6 +122,7 @@ void
 mqtt_client_task(void * ipc) {
 
 	_ipc = ipc;
+    ESP_LOGI(TAG, "%s starting ..", __func__);
 
 	// first message from _ipc->toMqttQ is the BLE MAC address (tx'd by ble_scan_task)
 
@@ -134,6 +135,7 @@ mqtt_client_task(void * ipc) {
         _devMAC = msg.data;
 		// do not free(msg.data) as we keep refering to it
     }
+    ESP_LOGI(TAG, "%s got devMAC (%s)", __func__, _devMAC);
 
 	// second message from _ipc->toMqttQ is the BLE Device name (tx'd by ble_scan_task)
 
@@ -150,10 +152,12 @@ mqtt_client_task(void * ipc) {
 		sprintf(_topic.data, "%s/%s", CONFIG_BLESCAN_MQTT_DATA_TOPIC, _devName);  // sent msgs
         sprintf(_topic.ctrl, "%s/%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC, _devName);  // received device specific ctrl msg
         sprintf(_topic.ctrlGroup, "%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC);          // received group ctrl msg
+        ESP_LOGI(TAG, "%s, %s, %s", _topic.data, _topic.ctrl, _topic.ctrlGroup);
 
 		ESP_LOGI(TAG, "toMqttQ Rx: devName \"%s\" => publish topic.ctrl = \"%s\"", _devName, _topic.ctrl);
 		// do not free(msg.data) as we keep refering to it
 	}
+    ESP_LOGI(TAG, "%s got devName (%s)", __func__, _devName);
 
 	// connect to MQTT broker, and subcribe to ctrl topic
 
@@ -168,11 +172,11 @@ mqtt_client_task(void * ipc) {
 
             switch (msg.dataType) {
                 case TO_MQTT_MSGTYPE_DATA:
-                    //ESP_LOGI(TAG, "%s data %s \"%s\"", __func__, _topic.data, msg.data);
+                    ESP_LOGI(TAG, "%s data %s \"%s\"", __func__, _topic.data, msg.data);
         			esp_mqtt_client_publish(_client, _topic.data, msg.data, strlen(msg.data), 1, 0);
                     break;
                 case TO_MQTT_MSGTYPE_CTRL:
-                    //ESP_LOGI(TAG, "%s ctrl %s \"%s\"", __func__, _topic.data, msg.data);
+                    ESP_LOGI(TAG, "%s ctrl %s \"%s\"", __func__, _topic.data, msg.data);
         			esp_mqtt_client_publish(_client, _topic.ctrl, msg.data, strlen(msg.data), 1, 0);
                     break;
                 case TO_MQTT_MSGTYPE_DEVMAC:
