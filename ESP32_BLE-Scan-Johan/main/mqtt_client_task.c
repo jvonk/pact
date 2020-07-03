@@ -53,7 +53,7 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
             xEventGroupSetBits(_mqttEventGrp, MQTT_EVENT_CONNECTED_BIT);
             break;
         case MQTT_EVENT_DATA:
-            ESP_LOGI(TAG, "MQTT_EVENT_DATA (%s) (%d %d)", event->topic, event->data_len, event->total_data_len);
+            //ESP_LOGI(TAG, "MQTT_EVENT_DATA (%s) (%d %d)", event->topic, event->data_len, event->total_data_len);
             if (event->topic && event->data_len == event->total_data_len) {  // quietly ignores chunked messaegs
 
                 if (strncmp("restart", event->data, event->data_len) == 0) {
