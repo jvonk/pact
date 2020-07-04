@@ -1,0 +1,8 @@
+menu "BLE Scan - OTA Updates"
+
+config BLESCAN_OTA_FIRMWARE_URL
+    string "firmware upgrade url"
+    default "https://nas.vonk:444/embedded/blescan.bin"
+    help
+        URL of server that hosts the firmware image.
+endmenu

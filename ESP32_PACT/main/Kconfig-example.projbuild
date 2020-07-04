@@ -1,0 +1,28 @@
+menu "BLE Scan - main"
+
+    config BLESCAN_MQTT_DATA_TOPIC
+        string "MQTT broker uri"
+        default "blescan/data"
+        help
+            MQTT topic for iBeacons received over BLE
+
+    config BLESCAN_MQTT_CTRL_TOPIC
+        string "MQTT broker uri"
+        default "blescan/ctrl"
+        help
+            MQTT topic for control messages
+
+    config BLESCAN_MQTT_TOPIC
+        string "MQTT broker uri"
+        default "blescan"
+        help
+            Top level topic of the MQTT messages.
+
+    config BLESCAN_MQTT_URL
+        string "MQTT broker uri"
+        default "mqtt://username:passwd@mqtt.vonk:1883"
+        help
+            URL of the MQTT broker.  For authentication include the username
+            and password.
+
+endmenu
