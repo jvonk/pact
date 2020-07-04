@@ -12,6 +12,8 @@ The software relies on the ESP-IDF SDK version >= 4.1-beta2 and accompanying too
 
 For development environment:(GNU toolchain, ESP-IDF, JTAG/OpenOCD, VSCode) refer to https://github.com/cvonk/vscode-starters/tree/master/ESP32
 
+Copy `Kconfig-example.projbuild` to `Kconfig.projbuild`, and delete `sdkconfig` so the build system will recreate it.
+
 Use `menuconfig` to configure:
 - `BLESCAN_MQTT_URL`, URL of the MQTT broker.  For authentication include the username and password, e.g. `mqtt://user:passwd@host.local:1883`
 - `BLESCAN_MQTT_TOPIC`, MQTT topic for iBeacons received over BLE
@@ -54,7 +56,7 @@ mosquitto_pub -h mqtt.vonk -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl" -m "ech
 Other control messages are:
 - `restart`, to restart the ESP32 (and check for OTA updates)
 - `who`, can be used for device discovery when sent to the group
-- `int N`, change scan/adv interval to N milliseconds
+- `int N`, change scan/adv interval to N * 10 milliseconds
 
 ### Scan results
 

@@ -24,7 +24,6 @@ static char const * const TAG = "mqtt_client_task";
 static mqtt_client_task_ipc_t const * _ipc = NULL;
 
 static EventGroupHandle_t _mqttEventGrp = NULL;
-
 typedef enum {
 	MQTT_EVENT_CONNECTED_BIT = BIT0
 } mqttEvent_t;
@@ -35,8 +34,8 @@ static struct {
     char * ctrlGroup;
 } _topic;
 
-char const * _devName = NULL;
-char const * _devMAC = NULL;
+char const * _devName = "";
+char const * _devMAC = "";
 
 static esp_mqtt_client_handle_t _client;
 
@@ -53,8 +52,9 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
             xEventGroupSetBits(_mqttEventGrp, MQTT_EVENT_CONNECTED_BIT);
             break;
         case MQTT_EVENT_DATA:
-            //ESP_LOGI(TAG, "MQTT_EVENT_DATA (%s) (%d %d)", event->topic, event->data_len, event->total_data_len);
             if (event->topic && event->data_len == event->total_data_len) {  // quietly ignores chunked messaegs
+
+                // handle some ctrl msgs here
 
                 if (strncmp("restart", event->data, event->data_len) == 0) {
 
@@ -81,14 +81,14 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
                     esp_mqtt_client_publish(event->client, _topic.data, payload, strlen(payload), 1, 0);
                     free(payload);
 
-                } else {  // forward to ble_scan_task
-
+                // forward the BLE specific ctrl msgs to ble_scan_task()
+                } else {
                     toMqttMsg_t msg = {
                         .dataType = FROM_MQTT_MSGTYPE_CTRL,
                         .data = strndup(event->data, event->data_len)
                     };
                     if (xQueueSendToBack(_ipc->fromMqttQ, &msg, 0) != pdPASS) {
-                        ESP_LOGW(TAG, "fromMqttQ full");
+                        //ESP_LOGW(TAG, "fromMqttQ full");
                         free(msg.data);
                     }
                 }
@@ -154,16 +154,13 @@ mqtt_client_task(void * ipc) {
         sprintf(_topic.ctrl, "%s/%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC, _devName);  // received device specific ctrl msg
         sprintf(_topic.ctrlGroup, "%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC);          // received group ctrl msg
         ESP_LOGI(TAG, "%s, %s, %s", _topic.data, _topic.ctrl, _topic.ctrlGroup);
-
-		ESP_LOGI(TAG, "toMqttQ Rx: devName \"%s\" => publish topic.ctrl = \"%s\"", _devName, _topic.ctrl);
 		// do not free(msg.data) as we keep refering to it
 	}
-    ESP_LOGI(TAG, "%s got devName (%s)", __func__, _devName);
+    ESP_LOGI(TAG, "my name is \"%s\"", _devName);
 
 	// connect to MQTT broker, and subcribe to ctrl topic
 
 	_mqttEventGrp = xEventGroupCreate();
-
 	_connect2broker();
 
 	// all remaining messages from _ipc->toMqttQ are iBeacon scan results formatted as JSON (tx'd by ble_scan_task)
@@ -173,11 +170,11 @@ mqtt_client_task(void * ipc) {
 
             switch (msg.dataType) {
                 case TO_MQTT_MSGTYPE_DATA:
-                    ESP_LOGI(TAG, "%s data %s \"%s\"", __func__, _topic.data, msg.data);
+                    //ESP_LOGI(TAG, "data %s \"%s\"", _topic.data, msg.data);
         			esp_mqtt_client_publish(_client, _topic.data, msg.data, strlen(msg.data), 1, 0);
                     break;
                 case TO_MQTT_MSGTYPE_CTRL:
-                    ESP_LOGI(TAG, "%s ctrl %s \"%s\"", __func__, _topic.data, msg.data);
+                    ESP_LOGI(TAG, "ctrl %s \"%s\"", _topic.data, msg.data);
         			esp_mqtt_client_publish(_client, _topic.ctrl, msg.data, strlen(msg.data), 1, 0);
                     break;
                 case TO_MQTT_MSGTYPE_DEVMAC:
