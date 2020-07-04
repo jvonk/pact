@@ -160,7 +160,7 @@ void ota_task(void * pvParameter)
                         _http_cleanup(client);
                         _delete_task();
                     }
-                    ESP_LOGI(TAG, "esp_ota_begin succeeded");
+                    ESP_LOGI(TAG, "downloading OTA Update ..");
                 } else {
                     ESP_LOGE(TAG, "rx package len err");
                     _http_cleanup(client);
