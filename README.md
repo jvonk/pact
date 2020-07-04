@@ -1,4 +1,4 @@
-[![license](https://img.shields.io/github/license/jvonk/pact)](LICENSE)
+[![LICENSE](https://img.shields.io/github/license/jvonk/pact)](LICENSE)
 
 # PACT Data Ecosystem with MQTT
 This repository provides a complete ecosystem to share data such as RSSI measurements from BLE beacons.
