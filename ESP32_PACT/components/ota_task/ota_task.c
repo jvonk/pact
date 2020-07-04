@@ -56,7 +56,6 @@ static void __attribute__((noreturn)) _delete_task()
 
 static void _infinite_loop(void)
 {
-    ESP_LOGI(TAG, "When a new firmware is available on the server, press the reset button to download it");
     _delete_task();
 }
 
@@ -78,9 +77,9 @@ void ota_task(void * pvParameter)
     esp_partition_t const * update_part = esp_ota_get_next_update_partition(NULL);
 
     if (configured_part != running_part) {
+        // This can happen if either the OTA boot data or preferred boot image become corrupted somehow
         ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
                  configured_part->address, running_part->address);
-        ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
     }
     ESP_LOGI(TAG, "Running partition %s (type %d-%d, offset 0x%08x)",
              running_part->label, running_part->type, running_part->subtype, running_part->address);
@@ -91,22 +90,21 @@ void ota_task(void * pvParameter)
         .url = CONFIG_BLESCAN_OTA_FIRMWARE_URL,
         //.cert_pem = (char *)server_cert_pem_start,
         .timeout_ms = CONFIG_BLESCAN_OTA_RECV_TIMEOUT,
-        //.skip_cert_common_name_check = true
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (client == NULL) {
-        ESP_LOGE(TAG, "Failed to init connection to server");
+        ESP_LOGE(TAG, "Failed to init connection");
         _delete_task();
     }
     esp_err_t err = esp_http_client_open(client, 0);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open connection to server (%s)", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to open connection (%s)", esp_err_to_name(err));
         esp_http_client_cleanup(client);
         _delete_task();
     }
     esp_http_client_fetch_headers(client);
     if (esp_http_client_get_status_code(client) != 200) {
-        ESP_LOGE(TAG, "File doesn't exist on server (%s), status=%d", CONFIG_BLESCAN_OTA_FIRMWARE_URL, esp_http_client_get_status_code(client));
+        ESP_LOGE(TAG, "No file on server (%s), status=%d", CONFIG_BLESCAN_OTA_FIRMWARE_URL, esp_http_client_get_status_code(client));
         esp_http_client_cleanup(client);
         _delete_task();
     }
@@ -190,7 +188,7 @@ void ota_task(void * pvParameter)
             break;
         }
     }
-    ESP_LOGI(TAG, "Finished, wrote %d bytes", binary_file_length);
+    //ESP_LOGI(TAG, "Finished, wrote %d bytes", binary_file_length);
     if (esp_http_client_is_complete_data_received(client) != true) {
         ESP_LOGE(TAG, "Error in receiving complete file");
         _http_cleanup(client);

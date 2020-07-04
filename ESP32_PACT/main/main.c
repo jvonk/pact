@@ -51,7 +51,7 @@ _wifiStaStart(void * arg, esp_event_base_t event_base, int32_t event_id, void* e
 static void
 _wifiDisconnectHandler(void * arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG, "Disconnected from WiFi");
+    ESP_LOGI(TAG, "WiFi disconnected");
     xEventGroupClearBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
     // this would be a good place to stop httpd (if running)
@@ -62,7 +62,7 @@ _wifiDisconnectHandler(void * arg, esp_event_base_t event_base, int32_t event_id
 static void
 _wifiConnectHandler(void * arg, esp_event_base_t event_base,  int32_t event_id, void * event_data)
 {
-    ESP_LOGI(TAG, "Connected to WiFi");
+    ESP_LOGI(TAG, "Wifi connected");
     xEventGroupSetBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
     // this would be a good place to start httpd (if running)
@@ -96,11 +96,10 @@ _connect2wifi(void)
 }
 
 void app_main() {
-	ESP_LOGI(TAG, "starting ..");
+
 	xTaskCreate(&reset_task, "reset_task", 4096, NULL, 5, NULL);
 
 	_init_nvs_flash();
-
 	_connect2wifi();  // waits for WiFi connection established
 
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);

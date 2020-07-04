@@ -375,25 +375,26 @@ ble_scan_task(void * ipc_void) {
 		if (xQueueReceive(ipc->fromMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 
             if (msg.dataType != FROM_MQTT_MSGTYPE_CTRL) {
-                ESP_LOGE(TAG, "unexpected dataType (%d)", msg.dataType);
-            }
-            char * args[3];
-            uint8_t argc = _splitArgs(msg.data, args, ARRAYSIZE(args));
-
-            if (strcmp(args[0], "int") == 0 && argc >= 2) {
-
-                    bleMode_t const orgBleMode = bleMode;  // args[1] in msec
-                    bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);
-
-                    adv_int_max = atoi(args[1]) << 4;  // args[1] should be in msec
-
-                    bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_max);
-
+                ESP_LOGE(TAG, "dataType (%d) err", msg.dataType);
             } else {
+                char * args[3];
+                uint8_t argc = _splitArgs(msg.data, args, ARRAYSIZE(args));
 
-                bleMode_t const newBleMode = _str2bleMode(args[0]);
-                if (newBleMode) {
-                    bleMode = _changeBleMode(bleMode, newBleMode, adv_int_max);
+                if (strcmp(args[0], "int") == 0 && argc >= 2) {
+
+                        // args[1] should be in 10s of msec, e.g. for 150 msec, specify 15
+                        adv_int_max = atoi(args[1]) << 4;
+
+                        bleMode_t const orgBleMode = bleMode;  // args[1] in msec
+                        bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);
+                        bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_max);
+
+                } else {
+
+                    bleMode_t const newBleMode = _str2bleMode(args[0]);
+                    if (newBleMode) {
+                        bleMode = _changeBleMode(bleMode, newBleMode, adv_int_max);
+                    }
                 }
             }
 			free(msg.data);
