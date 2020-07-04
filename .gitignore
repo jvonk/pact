@@ -7,3 +7,5 @@ ESP32_PACT/sdkconfig
 ESP32_PACT/main/Kconfig.projbuild
 .vscode/
 __pycache__/
+ESP32_BLE-Scan-Johan/factory/openocd.log
+ESP32_BLE-Scan-Johan/factory/debug.log

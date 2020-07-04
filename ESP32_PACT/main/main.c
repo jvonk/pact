@@ -76,8 +76,8 @@ void app_main() {
 	xTaskCreate(&reset_task, "reset_task", 4096, NULL, 5, NULL);
 
 	_init_nvs_flash();
-	tcpip_adapter_init();
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
+	ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
 	_connect_to_wifi();  // waits for WiFi connection established
 

@@ -29,4 +29,5 @@
   "workbench.tree.indent": 20,
   "files.trimTrailingWhitespace": true,
   "editor.detectIndentation": false,
+  "cmake.configureOnOpen": false,
 }
