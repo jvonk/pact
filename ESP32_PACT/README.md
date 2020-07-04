@@ -12,6 +12,8 @@ The software relies on the ESP-IDF SDK version >= 4.1-beta2 and accompanying too
 
 For development environment:(GNU toolchain, ESP-IDF, JTAG/OpenOCD, VSCode) refer to https://github.com/cvonk/vscode-starters/tree/master/ESP32
 
+Copy `Kconfig-example.projbuild` to `Kconfig.projbuild`, and delete `sdkconfig` so the build system will recreate it.
+
 Use `menuconfig` to configure:
 - `BLESCAN_MQTT_URL`, URL of the MQTT broker.  For authentication include the username and password, e.g. `mqtt://user:passwd@host.local:1883`
 - `BLESCAN_MQTT_TOPIC`, MQTT topic for iBeacons received over BLE

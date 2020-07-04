@@ -3,18 +3,20 @@
  **/
 // Copyright © 2020, Johan Vonk
 // SPDX-License-Identifier: MIT
-#include <esp_event.h>
-#include <esp_log.h>
-#include <esp_ota_ops.h>
-#include <esp_system.h>
-#include <esp_wifi.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/event_groups.h>
-#include <freertos/task.h>
-#include <nvs_flash.h>
 #include <sdkconfig.h>
 #include <stdio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/event_groups.h>
+#include <esp_system.h>
+#include <esp_wifi.h>
+#include <esp_event.h>
+#include <esp_log.h>
+#include <esp_system.h>
+#include <esp_http_server.h>
+#include <nvs_flash.h>
 #include <sys/param.h>
+#include <esp_ota_ops.h>
 
 #include <ota_task.h>
 #include <reset_task.h>
@@ -24,11 +26,10 @@
 #include "mqtt_msg.h"
 
 static char const *const TAG = "main_app";
-
-static EventGroupHandle_t _connectEventGroup;
+static EventGroupHandle_t _wifi_event_group;
 typedef enum {
-    CONNECT_EVENT_GOT_IPV4 = BIT(0)
-} connectEvent_t;
+    WIFI_EVENT_CONNECTED = BIT0
+} my_wifi_event_t;
 
 void _init_nvs_flash(void)
 {
@@ -40,35 +41,58 @@ void _init_nvs_flash(void)
 	ESP_ERROR_CHECK(ret);
 }
 
-static void on_got_ip(void *arg, esp_event_base_t event_base,
-                      int32_t event_id, void *event_data)
+static void
+_wifiStaStart(void * arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-	// ip_event_got_ip_t * event = (ip_event_got_ip_t *)event_data;
-	// event->ip_info.ip contains IP address
-	xEventGroupSetBits(_connectEventGroup, CONNECT_EVENT_GOT_IPV4);
+    ESP_LOGI(TAG, "STA start");
+    esp_wifi_connect();
 }
 
-static void on_wifi_disconnect(void *arg, esp_event_base_t event_base,
-                               int32_t event_id, void *event_data)
+static void
+_wifiDisconnectHandler(void * arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-	ESP_LOGI(TAG, "WiFi disconnected, attempting to reconnect ..");
-	ESP_ERROR_CHECK(esp_wifi_connect());
+    ESP_LOGI(TAG, "Disconnected from WiFi");
+    xEventGroupClearBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
+
+    // this would be a good place to stop httpd (if running)
+
+    esp_wifi_connect();
 }
 
-void _connect_to_wifi(void) {
-	_connectEventGroup = xEventGroupCreate();
+static void
+_wifiConnectHandler(void * arg, esp_event_base_t event_base,  int32_t event_id, void * event_data)
+{
+    ESP_LOGI(TAG, "Connected to WiFi");
+    xEventGroupSetBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect, NULL));
-	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip, NULL));
-	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-	ESP_ERROR_CHECK(esp_wifi_start());
-	ESP_ERROR_CHECK(esp_wifi_connect());
+    // this would be a good place to start httpd (if running)
 
-	if (!xEventGroupWaitBits(_connectEventGroup, CONNECT_EVENT_GOT_IPV4, pdFALSE, pdFALSE, portMAX_DELAY)) {
-        esp_restart();
-    }
+    //pool_mdns_init();
+}
+
+static void
+_connect2wifi(void)
+{
+    _wifi_event_group = xEventGroupCreate();
+
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();  // init WiFi with configuration from non-volatile storage
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    static httpd_handle_t server = NULL;
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_START, &_wifiStaStart, &server));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &_wifiDisconnectHandler, &server));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_wifiConnectHandler, &server));
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    // wait until either the connection is established
+    EventBits_t bits = xEventGroupWaitBits(_wifi_event_group, WIFI_EVENT_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
+    if (!bits) esp_restart();  // give up
 }
 
 void app_main() {
@@ -76,10 +100,8 @@ void app_main() {
 	xTaskCreate(&reset_task, "reset_task", 4096, NULL, 5, NULL);
 
 	_init_nvs_flash();
-	ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-	_connect_to_wifi();  // waits for WiFi connection established
+	_connect2wifi();  // waits for WiFi connection established
 
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
 

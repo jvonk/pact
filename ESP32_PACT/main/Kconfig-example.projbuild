@@ -1,3 +1,5 @@
+# remember to delete `sdconfig` after updating this file
+
 menu "BLE Scan - main"
 
     config BLESCAN_MQTT_DATA_TOPIC
