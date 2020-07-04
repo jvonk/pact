@@ -6,3 +6,9 @@ config BLESCAN_OTA_FIRMWARE_URL
     help
         URL of server that hosts the firmware image.
 endmenu
+
+config BLESCAN_OTA_RECV_TIMEOUT
+    int "OTA Receive Timeout"
+    default 5000
+    help
+        Maximum time for reception
