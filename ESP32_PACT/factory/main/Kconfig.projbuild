@@ -1,4 +1,5 @@
-menu "BLESCAN -interface config"
+# erase sdkconfig after changing this file, so it gets rebuild
+menu "Pool interface config"
 
 config RESET_PROVISIONED
     bool
