@@ -11,3 +11,4 @@ ESP32_BLE-Scan-Johan/factory/openocd.log
 ESP32_BLE-Scan-Johan/factory/debug.log
 ESP32_PACT/factory/debug.log
 ESP32_PACT/factory/openocd.log
+ESP32_PACT/factory/sdkconfig
