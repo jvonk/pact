@@ -1,9 +1,5 @@
-/**
- * @brief Reset when running and BOOT/RESET button is pressed for 3 seconds
- **/
-// Copyright © 2020, Coert Vonk
-// SPDX-License-Identifier: MIT
-
+/* Reset when running and BOOT/RESET button is pressed for 3 seconds
+*/
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -18,14 +14,15 @@
 
 #include "reset_task.h"
 
-static const char *TAG = "reset_task";
+static char const * const TAG = "reset_task";
 
-void IRAM_ATTR _button_isr_handler(void * arg) {
+void IRAM_ATTR _button_isr_handler(void * arg)  {
+
     static int64_t start = 0;
-    if (gpio_get_level(GPIO_NUM_0) == 0) {
+    if (gpio_get_level(CONFIG_RESET_PIN) == 0) {
         start = esp_timer_get_time();
     } else {
-        if (esp_timer_get_time() - start > CONFIG_BLESCAN_RESET_SECONDS * 1000 * 1000) {
+        if (esp_timer_get_time() - start > CONFIG_RESET_SECONDS * 1000L * 1000L) {
             xSemaphoreGiveFromISR(*(SemaphoreHandle_t *)arg, NULL);
         }
     }
@@ -35,20 +32,20 @@ void reset_task(void * pvParameter) {
 
     SemaphoreHandle_t semaphore = xSemaphoreCreateBinary();
 
-    gpio_pad_select_gpio(CONFIG_BLESCAN_RESET_PIN);
-    gpio_set_direction(CONFIG_BLESCAN_RESET_PIN, GPIO_MODE_INPUT);
-    gpio_set_intr_type(CONFIG_BLESCAN_RESET_PIN, GPIO_INTR_ANYEDGE);
+    gpio_pad_select_gpio(CONFIG_RESET_PIN);
+    gpio_set_direction(CONFIG_RESET_PIN, GPIO_MODE_INPUT);
+    gpio_set_intr_type(CONFIG_RESET_PIN, GPIO_INTR_ANYEDGE);
 
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(CONFIG_BLESCAN_RESET_PIN, _button_isr_handler, &semaphore);
+    gpio_isr_handler_add(CONFIG_RESET_PIN, _button_isr_handler, &semaphore);
 
     ESP_LOGI(TAG, "waiting for BOOT/RESET button ..");
 
     while (1) {
         if (xSemaphoreTake(semaphore, portMAX_DELAY) == pdTRUE) {
-            ESP_LOGI(TAG, "Factory reset ..");
+            ESP_LOGW(TAG, "Factory reset ..");
             esp_partition_iterator_t pi = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
-            if (pi != NULL) {
+            if (pi) {
                 esp_partition_t const * factory = esp_partition_get(pi);
                 esp_partition_iterator_release(pi);
                 if (esp_ota_set_boot_partition(factory) == ESP_OK) {
