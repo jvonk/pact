@@ -10,6 +10,7 @@
 #include <esp_event.h>
 #include <esp_log.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
 #include <freertos/queue.h>
@@ -19,6 +20,11 @@
 
 #include "mqtt_client_task.h"
 #include "mqtt_msg.h"
+
+#define ARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))
+#define ALIGN( type ) __attribute__((aligned( __alignof__( type ) )))
+#define PACK( type )  __attribute__((aligned( __alignof__( type ) ), packed ))
+#define PACK8  __attribute__((aligned( __alignof__( uint8_t ) ), packed ))
 
 static char const * const TAG = "mqtt_client_task";
 static mqtt_client_task_ipc_t const * _ipc = NULL;
@@ -69,14 +75,18 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
                     esp_app_desc_t running_app_info;
                     esp_ota_get_partition_description(running_part, &running_app_info);
 
-                    char * format = "{ \"name\": \"%s\", \"address\": \"%s\", \"version\": \"%s.%s\", \"date\": \"%s %s\" }";
-                    uint const wiggleRoom = 20;
-                    uint const payloadLen = strlen(format) + BLE_DEVNAME_LEN + BLE_DEVMAC_LEN + sizeof(running_app_info.project_name) + sizeof(running_app_info.version) + sizeof(running_app_info.date) + sizeof(running_app_info.time) + wiggleRoom;
+                    wifi_ap_record_t ap_info;
+                    esp_wifi_sta_get_ap_info(&ap_info);
+
+                    char * format = "{ \"name\": \"%s\", \"address\": \"%s\", \"firmware\": { \"version\": \"%s.%s\", \"date\": \"%s %s\" }, \"wifi\": { \"SSID\": \"%s\", \"RSSI\": %d } }";
+                    uint const wiggleRoom = 30;
+                    uint const payloadLen = strlen(format) + BLE_DEVNAME_LEN + BLE_DEVMAC_LEN + ARRAYSIZE(running_app_info.project_name) + ARRAYSIZE(running_app_info.version) + ARRAYSIZE(running_app_info.date) + ARRAYSIZE(running_app_info.time) + ARRAYSIZE(ap_info.ssid) + 3 + wiggleRoom;
                     char * const payload = malloc(payloadLen);
 
                     snprintf(payload, payloadLen, format, _devName, _devMAC,
                              running_app_info.project_name, running_app_info.version,
-                             running_app_info.date, running_app_info.time);
+                             running_app_info.date, running_app_info.time,
+                             ap_info.ssid, ap_info.rssi);
 
                     esp_mqtt_client_publish(event->client, _topic.data, payload, strlen(payload), 1, 0);
                     free(payload);
