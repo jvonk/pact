@@ -1,6 +1,5 @@
-# remember to delete `sdconfig` after updating this file
-
-menu "BLE Scan - main"
+# erase sdkconfig after changing this file, so it gets rebuild
+menu "BLE Scan"
 
     config BLESCAN_MQTT_DATA_TOPIC
         string "MQTT broker uri"
