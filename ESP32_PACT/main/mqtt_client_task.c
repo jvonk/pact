@@ -138,19 +138,22 @@ mqtt_client_task(void * ipc) {
 	// first message from _ipc->toMqttQ is the BLE MAC address (tx'd by ble_scan_task)
 
 	toMqttMsg_t msg;
-	if (xQueueReceive(_ipc->toMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
+	if (xQueueReceive(_ipc->toMqttQ, &msg, (TickType_t)(20000L / portTICK_PERIOD_MS)) == pdPASS) {
         if (msg.dataType != TO_MQTT_MSGTYPE_DEVMAC) {
             ESP_LOGE(TAG, "unexpected dataType(%d)", msg.dataType);
             esp_restart();
         }
         _devMAC = msg.data;
 		// do not free(msg.data) as we keep refering to it
+    } else {
+        ESP_LOGE(TAG, "Didn't receive devMAC");
+        esp_restart();
     }
     ESP_LOGI(TAG, "%s got devMAC (%s)", __func__, _devMAC);
 
 	// second message from _ipc->toMqttQ is the BLE Device name (tx'd by ble_scan_task)
 
-	if (xQueueReceive(_ipc->toMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
+	if (xQueueReceive(_ipc->toMqttQ, &msg, (TickType_t)(20000L / portTICK_PERIOD_MS)) == pdPASS) {
 
         if (msg.dataType != TO_MQTT_MSGTYPE_DEVNAME) {
             ESP_LOGE(TAG, "unexpected dataType(%d)", msg.dataType);
@@ -165,6 +168,9 @@ mqtt_client_task(void * ipc) {
         sprintf(_topic.ctrlGroup, "%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC);          // received group ctrl msg
         ESP_LOGI(TAG, "%s, %s, %s", _topic.data, _topic.ctrl, _topic.ctrlGroup);
 		// do not free(msg.data) as we keep refering to it
+    } else {
+        ESP_LOGE(TAG, "Didn't receive devName");
+        esp_restart();
 	}
     ESP_LOGI(TAG, "my name is \"%s\"", _devName);
 
