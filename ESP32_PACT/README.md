@@ -89,7 +89,7 @@ Here `DEVNAME` is either a programmed device name, such as `esp32-1`, or `esp32_
 Other control messages are:
 - `who`, can be used for device discovery when sent to the group topic
 - `restart`, to restart the ESP32 (and check for OTA updates)
-- `int N`, change scan/adv interval to N * 10 milliseconds
+- `int N`, to change scan/adv interval to N milliseconds
 
 Messages can be sent to a specific device, or the whole group:
 ```

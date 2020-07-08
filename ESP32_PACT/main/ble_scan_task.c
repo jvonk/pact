@@ -376,7 +376,7 @@ ble_scan_task(void * ipc_void) {
 
 	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 
-    uint16_t adv_int_max = 30 << 4;  // 30 msec  [n * 0.625 msec]
+    uint16_t adv_int_max = (30 << 4) / 10;  // 30 msec  [n * 0.625 msec]
     bleMode_t bleMode = _changeBleMode(BLE_MODE_IDLE, BLE_MODE_ADV, adv_int_max);
 
 	while (1) {
@@ -393,7 +393,7 @@ ble_scan_task(void * ipc_void) {
                 if (strcmp(args[0], "int") == 0 && argc >= 2) {
 
                         // args[1] should be in 10s of msec, e.g. for 150 msec, specify 15
-                        adv_int_max = atoi(args[1]) << 4;
+                        adv_int_max = (atoi(args[1]) << 4) / 10;
 
                         bleMode_t const orgBleMode = bleMode;  // args[1] in msec
                         bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);
