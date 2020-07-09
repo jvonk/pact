@@ -1,7 +1,7 @@
 /**
  * @brief ESP32 BLE iBeacon scanner and advertising (ctrl/data over MQTT)
  **/
-// Copyright © 2020, Johan Vonk
+// Copyright © 2020, Coert and Johan Vonk
 // SPDX-License-Identifier: MIT
 #include <sdkconfig.h>
 #include <stdio.h>

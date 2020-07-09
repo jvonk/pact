@@ -1,7 +1,7 @@
 /**
 * @brief mqtt_client_task, fowards scan results to and control messages from MQTT broker
  **/
-// Copyright © 2020, Coert Vonk
+// Copyright © 2020, Coert and Johan Vonk
 // SPDX-License-Identifier: MIT
 
 #include <sdkconfig.h>

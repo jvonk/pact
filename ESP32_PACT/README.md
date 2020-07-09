@@ -111,7 +111,7 @@ Make resiliant for WiFi and MQTT broker.
 
 ## License
 
-Copyright (c) 2020 Johan Vonk
+Copyright (c) 2020 Coert and Johan Vonk
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
