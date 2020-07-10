@@ -1,7 +1,7 @@
 /**
  * @brief BLE iBeacon advertisement or scanning
  **/
-// Copyright © 2020, Coert Vonk
+// Copyright © 2020, Coert and Johan Vonk
 // SPDX-License-Identifier: MIT
 
 #include <sdkconfig.h>
@@ -274,6 +274,16 @@ _bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
         { {0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1E}, "esp32-8" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xB2}, "esp32-9" },
         { {0xAC, 0x67, 0xB2, 0x53, 0x7B, 0x3A}, "esp32-10" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x0a, 0x7e}, "esp32-11" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x2b, 0xa2}, "esp32-12" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x22, 0xc2}, "esp32-13" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x43, 0x42}, "esp32-14" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x6d, 0x06}, "esp32-15" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x05, 0xf2}, "esp32-16" },
+        { {0x8c, 0xaa, 0xb5, 0x84, 0xe9, 0x76}, "esp32-17" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x2d, 0x5a}, "esp32-18" },
+        { {0x8c, 0xaa, 0xb5, 0x84, 0xec, 0xc6}, "esp32-19" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x08, 0x46}, "esp32-20" },
         { {0x30, 0xae, 0xa4, 0xcc, 0x45, 0x06}, "esp32-wrover-1" }
 	};
 	for (uint ii=0; ii < ARRAYSIZE(knownBrds); ii++) {
@@ -366,7 +376,7 @@ ble_scan_task(void * ipc_void) {
 
 	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 
-    uint16_t adv_int_max = 30 << 4;  // 30 msec  [n * 0.625 msec]
+    uint16_t adv_int_max = (30 << 4) / 10;  // 30 msec  [n * 0.625 msec]
     bleMode_t bleMode = _changeBleMode(BLE_MODE_IDLE, BLE_MODE_ADV, adv_int_max);
 
 	while (1) {
@@ -383,7 +393,7 @@ ble_scan_task(void * ipc_void) {
                 if (strcmp(args[0], "int") == 0 && argc >= 2) {
 
                         // args[1] should be in 10s of msec, e.g. for 150 msec, specify 15
-                        adv_int_max = atoi(args[1]) << 4;
+                        adv_int_max = (atoi(args[1]) << 4) / 10;
 
                         bleMode_t const orgBleMode = bleMode;  // args[1] in msec
                         bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);

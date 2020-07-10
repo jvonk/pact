@@ -1,4 +1,4 @@
-/* Copyright © 2020, Johan Vonk */
+/* Copyright © 2020, Coert and Johan Vonk */
 /* SPDX-License-Identifier: MIT */
 #pragma once
 
