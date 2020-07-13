@@ -121,9 +121,9 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
                 uint len = 0;
                 char payload[256];
 
-                len += sprintf(payload + len, "{ \"name\": %s }", _devName);
+                len += sprintf(payload + len, "{ \"name\": \"%s\"", _devName);
 
-                len += sprintf(payload + len, "{ \"address\": \"");
+                len += sprintf(payload + len, ", \"address\": \"");
                 for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
                     len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
                 }
