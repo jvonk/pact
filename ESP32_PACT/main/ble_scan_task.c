@@ -33,7 +33,6 @@
 
 static char const * const TAG = "ble_scan_task";
 static ble_scan_task_ipc_t * ipc = NULL;
-static char _devName[BLE_DEVNAME_LEN];
 
 static EventGroupHandle_t ble_event_group = NULL;
 typedef enum {
@@ -64,6 +63,45 @@ _bla2str(uint8_t const * const bda, char * const str) {
         }
     }
     return str;
+}
+
+static void
+_bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
+	typedef struct {
+		uint8_t const bda[ESP_BD_ADDR_LEN];
+		char const * const name;
+	} PACK8 knownBrd_t;
+	static knownBrd_t knownBrds[] = {
+        { {0x30, 0xAE, 0xA4, 0xCC, 0x24, 0x6A}, "esp32-1" },
+        { {0x30, 0xAE, 0xA4, 0xCC, 0x32, 0x4E}, "esp32-2" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x82, 0x8A}, "esp32-3" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x7F, 0x22}, "esp32-4" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0x82}, "esp32-5" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xAA}, "esp32-6" },
+        { {0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x8A}, "esp32-7" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1E}, "esp32-8" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xB2}, "esp32-9" },
+        { {0xAC, 0x67, 0xB2, 0x53, 0x7B, 0x3A}, "esp32-10" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x0a, 0x7e}, "esp32-11" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x2b, 0xa2}, "esp32-12" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x22, 0xc2}, "esp32-13" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x43, 0x42}, "esp32-14" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x6d, 0x06}, "esp32-15" },
+        { {0x8c, 0xaa, 0xb5, 0x85, 0x05, 0xf2}, "esp32-16" },
+        { {0x8c, 0xaa, 0xb5, 0x84, 0xe9, 0x76}, "esp32-17" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x2d, 0x5a}, "esp32-18" },
+        { {0x8c, 0xaa, 0xb5, 0x84, 0xec, 0xc6}, "esp32-19" },
+        { {0x8c, 0xaa, 0xb5, 0x86, 0x08, 0x46}, "esp32-20" },
+        { {0x30, 0xae, 0xa4, 0xcc, 0x45, 0x06}, "esp32-wrover-1" }
+	};
+	for (uint ii=0; ii < ARRAYSIZE(knownBrds); ii++) {
+		if (memcmp(bda, knownBrds[ii].bda, ESP_BD_ADDR_LEN) == 0) {
+			strncpy(name, knownBrds[ii].name, name_len);
+			return;
+		}
+	}
+	snprintf(name, name_len, "esp32_%02x%02x",
+			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
 }
 
 static void
@@ -120,8 +158,10 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 
                 uint len = 0;
                 char payload[256];
+                char devName[BLE_DEVNAME_LEN];
+                _bda2devname(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
 
-                len += sprintf(payload + len, "{ \"name\": \"%s\"", _devName);
+                len += sprintf(payload + len, "{ \"name\": \"%s\"", devName);
 
                 len += sprintf(payload + len, ", \"address\": \"");
                 for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
@@ -261,45 +301,6 @@ _str2bleMode(char const * const str) {
     return 0;
 }
 
-static void
-_bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
-	typedef struct {
-		uint8_t const bda[ESP_BD_ADDR_LEN];
-		char const * const name;
-	} PACK8 knownBrd_t;
-	static knownBrd_t knownBrds[] = {
-        { {0x30, 0xAE, 0xA4, 0xCC, 0x24, 0x6A}, "esp32-1" },
-        { {0x30, 0xAE, 0xA4, 0xCC, 0x32, 0x4E}, "esp32-2" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x82, 0x8A}, "esp32-3" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x7F, 0x22}, "esp32-4" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0x82}, "esp32-5" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xAA}, "esp32-6" },
-        { {0x24, 0x0A, 0xC4, 0xEB, 0x36, 0x8A}, "esp32-7" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x93, 0x1E}, "esp32-8" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x84, 0xB2}, "esp32-9" },
-        { {0xAC, 0x67, 0xB2, 0x53, 0x7B, 0x3A}, "esp32-10" },
-        { {0x8c, 0xaa, 0xb5, 0x85, 0x0a, 0x7e}, "esp32-11" },
-        { {0x8c, 0xaa, 0xb5, 0x86, 0x2b, 0xa2}, "esp32-12" },
-        { {0x8c, 0xaa, 0xb5, 0x86, 0x22, 0xc2}, "esp32-13" },
-        { {0x8c, 0xaa, 0xb5, 0x85, 0x43, 0x42}, "esp32-14" },
-        { {0x8c, 0xaa, 0xb5, 0x85, 0x6d, 0x06}, "esp32-15" },
-        { {0x8c, 0xaa, 0xb5, 0x85, 0x05, 0xf2}, "esp32-16" },
-        { {0x8c, 0xaa, 0xb5, 0x84, 0xe9, 0x76}, "esp32-17" },
-        { {0x8c, 0xaa, 0xb5, 0x86, 0x2d, 0x5a}, "esp32-18" },
-        { {0x8c, 0xaa, 0xb5, 0x84, 0xec, 0xc6}, "esp32-19" },
-        { {0x8c, 0xaa, 0xb5, 0x86, 0x08, 0x46}, "esp32-20" },
-        { {0x30, 0xae, 0xa4, 0xcc, 0x45, 0x06}, "esp32-wrover-1" }
-	};
-	for (uint ii=0; ii < ARRAYSIZE(knownBrds); ii++) {
-		if (memcmp(bda, knownBrds[ii].bda, ESP_BD_ADDR_LEN) == 0) {
-			strncpy(name, knownBrds[ii].name, name_len);
-			return;
-		}
-	}
-	snprintf(name, name_len, "esp32_%02x%02x",
-			 bda[ESP_BD_ADDR_LEN-2], bda[ESP_BD_ADDR_LEN-1]);
-}
-
 static uint
 _splitArgs(char * data, char * args[], uint const args_len) {
 
@@ -365,11 +366,12 @@ ble_scan_task(void * ipc_void) {
 
 	// second message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
 
-	_bda2devname(bda, _devName, BLE_DEVNAME_LEN);
+    char devName[BLE_DEVNAME_LEN];
+	_bda2devname(bda, devName, BLE_DEVNAME_LEN);
     {
         toMqttMsg_t msg = {
             .dataType = TO_MQTT_MSGTYPE_DEVNAME,
-            .data = strdup(_devName)
+            .data = strdup(devName)
         };
         if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
             ESP_LOGE(TAG, "toMqttQ full (2nd)");  // should never happen, since its the first msg
