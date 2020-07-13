@@ -33,6 +33,7 @@
 
 static char const * const TAG = "ble_scan_task";
 static ble_scan_task_ipc_t * ipc = NULL;
+static char _devName[BLE_DEVNAME_LEN];
 
 static EventGroupHandle_t ble_event_group = NULL;
 typedef enum {
@@ -119,6 +120,9 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 
                 uint len = 0;
                 char payload[256];
+
+                len += sprintf(payload + len, "{ \"name\": %s }", _devName);
+
                 len += sprintf(payload + len, "{ \"address\": \"");
                 for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
                     len += sprintf(payload + len, "%02x%c", scan_result->scan_rst.bda[ii], (ii < ESP_BD_ADDR_LEN - 1) ? ':' : '"');
@@ -361,12 +365,11 @@ ble_scan_task(void * ipc_void) {
 
 	// second message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
 
-	char devName[BLE_DEVNAME_LEN];
-	_bda2devname(bda, devName, BLE_DEVNAME_LEN);
+	_bda2devname(bda, _devName, BLE_DEVNAME_LEN);
     {
         toMqttMsg_t msg = {
             .dataType = TO_MQTT_MSGTYPE_DEVNAME,
-            .data = strdup(devName)
+            .data = strdup(_devName)
         };
         if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
             ESP_LOGE(TAG, "toMqttQ full (2nd)");  // should never happen, since its the first msg
