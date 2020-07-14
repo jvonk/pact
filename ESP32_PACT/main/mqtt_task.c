@@ -57,7 +57,7 @@ sendToMqtt(toMqttMsgType_t const dataType, char const * const data, ipc_t const 
 static esp_err_t
 _mqttEventHandler(esp_mqtt_event_handle_t event) {
 
-     ipc_t const * const ipc = event->user_context;
+     ipc_t * const ipc = event->user_context;
 
 	switch (event->event_id) {
         case MQTT_EVENT_DISCONNECTED:
@@ -68,6 +68,7 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "Broker connected");
             xEventGroupSetBits(_mqttEventGrp, MQTT_EVENT_CONNECTED_BIT);
+            ipc->dev.connectCnt.mqtt++;
             esp_mqtt_client_subscribe(event->client, _topic.ctrl, 1);
             esp_mqtt_client_subscribe(event->client, _topic.ctrlGroup, 1);
             ESP_LOGI(TAG, " subscribed to \"%s\", \"%s\"", _topic.ctrl, _topic.ctrlGroup);
@@ -90,16 +91,16 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
                     wifi_ap_record_t ap_info;
                     esp_wifi_sta_get_ap_info(&ap_info);
 
-                    char * format = "{ \"name\": \"%s\", \"address\": \"%s\", \"firmware\": { \"version\": \"%s.%s\", \"date\": \"%s %s\" }, \"wifi\": { \"SSID\": \"%s\", \"RSSI\": %d } }";
-                    uint const wiggleRoom = 30;
-                    uint const payloadLen = strlen(format) + BLE_DEVNAME_LEN + BLE_DEVMAC_LEN + ARRAYSIZE(running_app_info.project_name) + ARRAYSIZE(running_app_info.version) + ARRAYSIZE(running_app_info.date) + ARRAYSIZE(running_app_info.time) + ARRAYSIZE(ap_info.ssid) + 3 + wiggleRoom;
-                    char * const payload = malloc(payloadLen);
+                    char * payload;
+                    int const payload_len = asprintf(&payload,
+                        "{ \"ble\": {\"name\": \"%s\", \"address\": \"%s\"}, \"firmware\": { \"version\": \"%s.%s\", \"date\": \"%s %s\" }, \"wifi\": { \"connect\": %u, \"address\": \"%s\", \"SSID\": \"%s\", \"RSSI\": %d }, \"mqtt\": { \"connect\": %u }, \"mem\": { \"heap\": %u } }",
+                        ipc->dev.name, ipc->dev.bda,
+                        running_app_info.project_name, running_app_info.version,
+                        running_app_info.date, running_app_info.time,
+                        ipc->dev.connectCnt.wifi, ipc->dev.ipAddr, ap_info.ssid, ap_info.rssi,
+                        ipc->dev.connectCnt.mqtt, heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
-                    snprintf(payload, payloadLen, format, ipc->dev.name, ipc->dev.bda,
-                             running_app_info.project_name, running_app_info.version,
-                             running_app_info.date, running_app_info.time,
-                             ap_info.ssid, ap_info.rssi);
-
+                    assert(payload_len >= 0);
                     sendToMqtt(TO_MQTT_MSGTYPE_WHO, payload, ipc);
                     free(payload);
 

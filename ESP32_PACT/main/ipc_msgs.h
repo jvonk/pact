@@ -11,6 +11,10 @@ typedef struct ipc_t {
         char bda[BLE_DEVMAC_LEN];
         char name[BLE_DEVNAME_LEN];
         char ipAddr[WIFI_DEVIPADDR_LEN];
+        struct connectCnt {
+            uint wifi;
+            uint mqtt;
+        } connectCnt;
     } dev;
 
 } ipc_t;
