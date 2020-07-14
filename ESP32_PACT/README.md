@@ -90,6 +90,7 @@ Other control messages are:
 - `who`, can be used for device discovery when sent to the group topic
 - `restart`, to restart the ESP32 (and check for OTA updates)
 - `int N`, to change scan/adv interval to N milliseconds
+- `mode`, to report the scan/adv mode and interval
 
 Messages can be sent to a specific device, or the whole group:
 ```
@@ -99,15 +100,18 @@ mosquitto_pub -h {BROKER} -u {USERNAME} -P {PASSWORD} -t "blescan/ctrl" -m "who"
 
 ### Scan results and replies to Control msgs
 
-Replies to control messages and scan results are reported using MQTT topic `blescan/data/DEVNAME`.  E.g. to listen to all replies and scan results, use:
+Replies to control messages and scan results are reported using MQTT topic `blescan/data/SUBTOPIC/DEVNAME`.  Subtopics are:
+- `scan`, BLE scan results
+- `mode`, response to `mode` and `int` control messages
+- `who`, response to `who` control messages
+- `restart`, response to `restart` control messages
+- `dbg`, general debug messages
+
+E.g. to listen to all scan results, use:
 ```
-mosquitto_sub -h {BROKER} -u {USERNAME} -P {PASSWORD} -t "blescan/data/#" -v
+mosquitto_sub -h {BROKER} -u {USERNAME} -P {PASSWORD} -t "blescan/data/scan/#" -v
 ```
 where `#` is a the MQTT wildcard character.
-
-## Improvements
-
-Make resiliant for WiFi and MQTT broker.
 
 ## License
 
