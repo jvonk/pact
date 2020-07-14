@@ -67,7 +67,7 @@ sendToBle(toBleMsgType_t const dataType, char const * const data, ipc_t const * 
 }
 
 char *
-bleMac2str(uint8_t const * const bda, char * const str) {
+bda2str(uint8_t const * const bda, char * const str) {
 
     uint len = 0;
     for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
@@ -80,7 +80,7 @@ bleMac2str(uint8_t const * const bda, char * const str) {
 }
 
 void
-bleMac2devName(uint8_t const * const bda, char * const name, size_t name_len) {
+bda2devName(uint8_t const * const bda, char * const name, size_t name_len) {
 	typedef struct {
 		uint8_t const bda[ESP_BD_ADDR_LEN];
 		char const * const name;
@@ -173,7 +173,7 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t * param) {
                 uint len = 0;
                 char payload[256];
                 char devName[BLE_DEVNAME_LEN];
-                bleMac2devName(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
+                bda2devName(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
 
                 len += sprintf(payload + len, "{ \"name\": \"%s\"", devName);
 

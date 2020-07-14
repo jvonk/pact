@@ -18,6 +18,7 @@
 #include <nvs_flash.h>
 #include <sys/param.h>
 #include <esp_ota_ops.h>
+#include <esp_bt_device.h>
 
 #include <ota_task.h>
 #include <reset_task.h>
@@ -116,10 +117,9 @@ void app_main() {
     ipc.toMqttQ = xQueueCreate(2, sizeof(toMqttMsg_t));
     assert(ipc.toBleQ && ipc.toMqttQ);
 
-    uint8_t mac[BLE_DEVMAC_LEN];
-    ESP_ERROR_CHECK(esp_base_mac_addr_get(mac));
-    bleMac2str(mac, ipc.dev.mac);
-	bleMac2devName(mac, ipc.dev.name, BLE_DEVNAME_LEN);
+    uint8_t const * const bda = esp_bt_dev_get_address();
+    bda2str(bda, ipc.dev.mac);
+	bda2devName(bda, ipc.dev.name, BLE_DEVNAME_LEN);
 
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
     xTaskCreate(&ble_task, "ble_task", 2 * 4096, &ipc, 5, NULL);
