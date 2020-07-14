@@ -44,16 +44,27 @@ void _init_nvs_flash(void)
 static void
 _wifiStaStart(void * arg_void, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG, "STA start => connect to WiFi AP");
-    //ipc_t * ipc = arg_void;
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = CONFIG_WIFI_SSID,
+            .password = CONFIG_WIFI_PASSWD
+        }
+    };
+    if (*wifi_config.sta.ssid == '\0') {
+        esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
+    }
+    ESP_LOGI(TAG, "Start STA, connect to \"%s\" (\"%s\")",
+             (char const *) wifi_config.sta.ssid, (char const *) wifi_config.sta.password);
+    //ipc_t * const ipc = arg_void;
     ESP_ERROR_CHECK(esp_wifi_connect());
+
 }
 
 static void
 _wifiDisconnectHandler(void * arg_void, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     ESP_LOGI(TAG, "WiFi disconnected");
-    //ipc_t * ipc = arg_void;
+    //ipc_t * const ipc = arg_void;
     xEventGroupClearBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
     // this would be a good place to stop httpd (if running)
@@ -66,7 +77,7 @@ static void
 _wifiConnectHandler(void * arg_void, esp_event_base_t event_base,  int32_t event_id, void * event_data)
 {
     ESP_LOGI(TAG, "Wifi connected");
-    ipc_t * ipc = arg_void;
+    ipc_t * const ipc = arg_void;
     xEventGroupSetBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
     ip_event_got_ip_t const * const event = (ip_event_got_ip_t *) event_data;
@@ -80,6 +91,7 @@ static void
 _connect2wifi(ipc_t * const ipc)
 {
     _wifi_event_group = xEventGroupCreate();
+    assert(_wifi_event_group);
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -93,7 +105,7 @@ _connect2wifi(ipc_t * const ipc)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_wifiConnectHandler, ipc));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    if (strlen(CONFIG_WIFI_SSID) && strlen(CONFIG_WIFI_PASSWD)) {
+    if (strlen(CONFIG_WIFI_SSID)) {
         wifi_config_t wifi_config = {
             .sta = {
                 .ssid = CONFIG_WIFI_SSID,
@@ -105,8 +117,7 @@ _connect2wifi(ipc_t * const ipc)
     ESP_ERROR_CHECK(esp_wifi_start());
 
     // wait until either the connection is established
-    EventBits_t bits = xEventGroupWaitBits(_wifi_event_group, WIFI_EVENT_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
-    if (!bits) esp_restart();  // give up
+    assert(xEventGroupWaitBits(_wifi_event_group, WIFI_EVENT_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY));
 }
 
 void app_main() {
