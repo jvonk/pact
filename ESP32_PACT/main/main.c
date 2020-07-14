@@ -53,19 +53,19 @@ _wifiStaStart(void * arg_void, esp_event_base_t event_base, int32_t event_id, vo
     if (*wifi_config.sta.ssid == '\0') {
         esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
     }
-    ESP_LOGI(TAG, "Start STA, connect to \"%s\" (\"%s\")",
+    ESP_LOGI(TAG, "Connecting to AP \"%s\" with passwd \"%s\"",
              (char const *) wifi_config.sta.ssid, (char const *) wifi_config.sta.password);
     //ipc_t * const ipc = arg_void;
     ESP_ERROR_CHECK(esp_wifi_connect());
-
 }
 
 static void
 _wifiDisconnectHandler(void * arg_void, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     ESP_LOGI(TAG, "WiFi disconnected");
-    //ipc_t * const ipc = arg_void;
     xEventGroupClearBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
+
+    //ipc_t * const ipc = arg_void;
 
     // this would be a good place to stop httpd (if running)
 
