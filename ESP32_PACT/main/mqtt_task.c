@@ -112,7 +112,7 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
                     uint const payloadLen = strlen(format) + BLE_DEVNAME_LEN + BLE_DEVMAC_LEN + ARRAYSIZE(running_app_info.project_name) + ARRAYSIZE(running_app_info.version) + ARRAYSIZE(running_app_info.date) + ARRAYSIZE(running_app_info.time) + ARRAYSIZE(ap_info.ssid) + 3 + wiggleRoom;
                     char * const payload = malloc(payloadLen);
 
-                    snprintf(payload, payloadLen, format, ipc->dev.name, ipc->dev.mac,
+                    snprintf(payload, payloadLen, format, ipc->dev.name, ipc->dev.bda,
                              running_app_info.project_name, running_app_info.version,
                              running_app_info.date, running_app_info.time,
                              ap_info.ssid, ap_info.rssi);

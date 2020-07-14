@@ -2,13 +2,15 @@
 
 #define BLE_DEVNAME_LEN (32)
 #define BLE_DEVMAC_LEN (6 * 3)
+#define WIFI_DEVIPADDR_LEN (16)
 
 typedef struct ipc_t {
     QueueHandle_t toBleQ;
     QueueHandle_t toMqttQ;
     struct dev {
-        char mac[BLE_DEVMAC_LEN];
+        char bda[BLE_DEVMAC_LEN];
         char name[BLE_DEVNAME_LEN];
+        char ipAddr[WIFI_DEVIPADDR_LEN];
     } dev;
 
 } ipc_t;

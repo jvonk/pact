@@ -14,7 +14,6 @@
 #include <esp_event.h>
 #include <esp_log.h>
 #include <esp_system.h>
-#include <esp_http_server.h>
 #include <nvs_flash.h>
 #include <sys/param.h>
 #include <esp_ota_ops.h>
@@ -43,36 +42,42 @@ void _init_nvs_flash(void)
 }
 
 static void
-_wifiStaStart(void * arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+_wifiStaStart(void * arg_void, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG, "STA start");
-    esp_wifi_connect();
+    ESP_LOGI(TAG, "STA start => connect to WiFi AP");
+    //ipc_t * ipc = arg_void;
+    ESP_ERROR_CHECK(esp_wifi_connect());
 }
 
 static void
-_wifiDisconnectHandler(void * arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+_wifiDisconnectHandler(void * arg_void, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     ESP_LOGI(TAG, "WiFi disconnected");
+    //ipc_t * ipc = arg_void;
     xEventGroupClearBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
     // this would be a good place to stop httpd (if running)
 
-    esp_wifi_connect();
+    vTaskDelay(10000L / portTICK_PERIOD_MS);
+    ESP_ERROR_CHECK(esp_wifi_connect());
 }
 
 static void
-_wifiConnectHandler(void * arg, esp_event_base_t event_base,  int32_t event_id, void * event_data)
+_wifiConnectHandler(void * arg_void, esp_event_base_t event_base,  int32_t event_id, void * event_data)
 {
     ESP_LOGI(TAG, "Wifi connected");
+    ipc_t * ipc = arg_void;
     xEventGroupSetBits(_wifi_event_group, WIFI_EVENT_CONNECTED);
 
-    // this would be a good place to start httpd (if running)
+    ip_event_got_ip_t const * const event = (ip_event_got_ip_t *) event_data;
+    snprintf(ipc->dev.ipAddr, WIFI_DEVIPADDR_LEN, IPSTR, IP2STR(&event->ip_info.ip));
+    ESP_LOGI(TAG, "IP addr = %s", ipc->dev.ipAddr);
 
-    //pool_mdns_init();
+    // this would be a good place to start httpd (if running)
 }
 
 static void
-_connect2wifi(void)
+_connect2wifi(ipc_t * const ipc)
 {
     _wifi_event_group = xEventGroupCreate();
 
@@ -83,10 +88,9 @@ _connect2wifi(void)
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();  // init WiFi with configuration from non-volatile storage
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    static httpd_handle_t server = NULL;
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_START, &_wifiStaStart, &server));
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &_wifiDisconnectHandler, &server));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_wifiConnectHandler, &server));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_START, &_wifiStaStart, ipc));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &_wifiDisconnectHandler, ipc));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_wifiConnectHandler, ipc));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     if (strlen(CONFIG_WIFI_SSID) && strlen(CONFIG_WIFI_PASSWD)) {
@@ -110,15 +114,16 @@ void app_main() {
 	xTaskCreate(&reset_task, "reset_task", 4096, NULL, 5, NULL);
 
 	_init_nvs_flash();
-	_connect2wifi();  // waits for WiFi connection established
 
     static ipc_t ipc;
     ipc.toBleQ = xQueueCreate(2, sizeof(toBleMsg_t));
     ipc.toMqttQ = xQueueCreate(2, sizeof(toMqttMsg_t));
     assert(ipc.toBleQ && ipc.toMqttQ);
 
+	_connect2wifi(&ipc);  // waits for WiFi connection established
+
     uint8_t const * const bda = esp_bt_dev_get_address();
-    bda2str(bda, ipc.dev.mac);
+    bda2str(bda, ipc.dev.bda);
 	bda2devName(bda, ipc.dev.name, BLE_DEVNAME_LEN);
 
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
