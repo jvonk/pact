@@ -8,6 +8,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/event_groups.h>
+#include <freertos/queue.h>
 #include <esp_system.h>
 #include <esp_wifi.h>
 #include <esp_event.h>
@@ -20,12 +21,11 @@
 
 #include <ota_task.h>
 #include <reset_task.h>
-#include <ble_scan_task.h>
+#include "ipc_msgs.h"
+#include "mqtt_task.h"
+#include "ble_task.h"
 
-#include "mqtt_client_task.h"
-#include "mqtt_msg.h"
-
-static char const *const TAG = "main_app";
+static char const * const TAG = "main_app";
 static EventGroupHandle_t _wifi_event_group;
 typedef enum {
     WIFI_EVENT_CONNECTED = BIT0
@@ -111,20 +111,17 @@ void app_main() {
 	_init_nvs_flash();
 	_connect2wifi();  // waits for WiFi connection established
 
+    static ipc_t ipc;
+    ipc.toBleQ = xQueueCreate(2, sizeof(toBleMsg_t));
+    ipc.toMqttQ = xQueueCreate(2, sizeof(toMqttMsg_t));
+    assert(ipc.toBleQ && ipc.toMqttQ);
+
+    uint8_t mac[BLE_DEVMAC_LEN];
+    ESP_ERROR_CHECK(esp_base_mac_addr_get(mac));
+    bleMac2str(mac, ipc.dev.mac);
+	bleMac2devName(mac, ipc.dev.name, BLE_DEVNAME_LEN);
+
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
-
-	QueueHandle_t toMqttQ = xQueueCreate(2, sizeof(toMqttMsg_t));
-	QueueHandle_t fromMqttQ = xQueueCreate(2, sizeof(fromMqttMsg_t));
-
-	if (toMqttQ && fromMqttQ) {
-		static ble_scan_task_ipc_t ble_scan_task_ipc;
-		ble_scan_task_ipc.fromMqttQ = fromMqttQ;          // rx
-		ble_scan_task_ipc.toMqttQ = toMqttQ;  // tx
-		xTaskCreate(&ble_scan_task, "ble_scan_task", 2 * 4096, &ble_scan_task_ipc, 5, NULL);
-
-		static mqtt_client_task_ipc_t mqtt_client_task_ipc;
-		mqtt_client_task_ipc.fromMqttQ = fromMqttQ;          // tx
-		mqtt_client_task_ipc.toMqttQ = toMqttQ;  // rx
-		xTaskCreate(&mqtt_client_task, "mqtt_client_task", 2 * 4096, &mqtt_client_task_ipc, 5, NULL);
-	}
+    xTaskCreate(&ble_task, "ble_task", 2 * 4096, &ipc, 5, NULL);
+    xTaskCreate(&mqtt_task, "mqtt_task", 2 * 4096, &ipc, 5, NULL);
 }

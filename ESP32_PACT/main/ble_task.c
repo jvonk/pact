@@ -23,16 +23,16 @@
 #include <freertos/task.h>
 #include <esp_ibeacon_api.h>
 
-#include "ble_scan_task.h"
-#include "mqtt_msg.h"
+#include "ipc_msgs.h"
+#include "ble_task.h"
 
 #define ARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))
 #define ALIGN( type ) __attribute__((aligned( __alignof__( type ) )))
 #define PACK( type )  __attribute__((aligned( __alignof__( type ) ), packed ))
 #define PACK8  __attribute__((aligned( __alignof__( uint8_t ) ), packed ))
 
-static char const * const TAG = "ble_scan_task";
-static ble_scan_task_ipc_t * ipc = NULL;
+static char const * const TAG = "ble_task";
+static ipc_t * _ipc = NULL;
 
 static EventGroupHandle_t ble_event_group = NULL;
 typedef enum {
@@ -52,8 +52,22 @@ typedef enum {  // ESP32 can only do one function at a time (SCAN || ADVERTISE)
 
 extern esp_ble_ibeacon_vendor_t vendor_config;
 
+void
+sendToBle(toBleMsgType_t const dataType, char const * const data, ipc_t const * const ipc)
+{
+    toBleMsg_t msg = {
+        .dataType = dataType,
+        .data = strdup(data)
+    };
+    assert(msg.data);
+    if (xQueueSendToBack(ipc->toBleQ, &msg, 0) != pdPASS) {
+        ESP_LOGE(TAG, "toBleQ full");
+        free(msg.data);
+    }
+}
+
 char *
-_bla2str(uint8_t const * const bda, char * const str) {
+bleMac2str(uint8_t const * const bda, char * const str) {
 
     uint len = 0;
     for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
@@ -65,8 +79,8 @@ _bla2str(uint8_t const * const bda, char * const str) {
     return str;
 }
 
-static void
-_bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
+void
+bleMac2devName(uint8_t const * const bda, char * const name, size_t name_len) {
 	typedef struct {
 		uint8_t const bda[ESP_BD_ADDR_LEN];
 		char const * const name;
@@ -105,7 +119,7 @@ _bda2devname(uint8_t const * const bda, char * const name, size_t name_len) {
 }
 
 static void
-_bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+_bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t * param) {
 
 	esp_err_t err;
 
@@ -159,7 +173,7 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
                 uint len = 0;
                 char payload[256];
                 char devName[BLE_DEVNAME_LEN];
-                _bda2devname(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
+                bleMac2devName(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
 
                 len += sprintf(payload + len, "{ \"name\": \"%s\"", devName);
 
@@ -170,15 +184,7 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
                 len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
                 len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
 
-                //  forward to ipc->toMqttQ
-
-                toMqttMsg_t msg = {
-                    .dataType = TO_MQTT_MSGTYPE_DATA,
-                    .data = strdup(payload)
-                };
-                if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
-                    free(msg.data);
-                }
+                sendToMqtt(TO_MQTT_MSGTYPE_DATA, payload, _ipc);
             }
         }
         default:
@@ -339,45 +345,16 @@ _changeBleMode(bleMode_t const current, bleMode_t const new, uint16_t const adv_
 }
 
 void
-ble_scan_task(void * ipc_void) {
+ble_task(void * ipc_void) {
 
-	ipc = ipc_void;
+    ESP_LOGI(TAG, "starting ..");
+	_ipc = ipc_void;
 
 	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 	esp_bt_controller_init(&bt_cfg);
 	esp_bt_controller_enable(ESP_BT_MODE_BLE);
 	_initIbeacon();
-
-    // first  message to ipc->toMqttQ is the MAC address (rx'ed by mqtt_client_task)
-
-    uint8_t const * const bda = esp_bt_dev_get_address();
-    {
-        char * const bdaStr = malloc(BLE_DEVMAC_LEN);
-        toMqttMsg_t msg = {
-            .dataType = TO_MQTT_MSGTYPE_DEVMAC,
-            .data = _bla2str(bda, bdaStr)
-        };
-        if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
-            ESP_LOGE(TAG, "toMqttQ full (1st)");  // should never happen, since its the first msg
-            free(msg.data);
-        }
-	}
-
-	// second message to ipc->toMqttQ is the device name (rx'ed by mqtt_client_task)
-
-    char devName[BLE_DEVNAME_LEN];
-	_bda2devname(bda, devName, BLE_DEVNAME_LEN);
-    {
-        toMqttMsg_t msg = {
-            .dataType = TO_MQTT_MSGTYPE_DEVNAME,
-            .data = strdup(devName)
-        };
-        if (xQueueSendToBack(ipc->toMqttQ, &msg, 0) != pdPASS) {
-            ESP_LOGE(TAG, "toMqttQ full (2nd)");  // should never happen, since its the first msg
-            free(msg.data);
-        }
-    }
 
 	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 
@@ -386,10 +363,10 @@ ble_scan_task(void * ipc_void) {
 
 	while (1) {
 
-		fromMqttMsg_t msg;
-		if (xQueueReceive(ipc->fromMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
+		toBleMsg_t msg;
+		if (xQueueReceive(_ipc->toBleQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
 
-            if (msg.dataType != FROM_MQTT_MSGTYPE_CTRL) {
+            if (msg.dataType != TO_BLE_MSGTYPE_CTRL) {
                 ESP_LOGE(TAG, "dataType (%d) err", msg.dataType);
             } else {
                 char * args[3];

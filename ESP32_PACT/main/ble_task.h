@@ -1,10 +1,6 @@
-/* Copyright © 2020, Johan Vonk */
-/* SPDX-License-Identifier: MIT */
 #pragma once
 
-typedef struct {
-    QueueHandle_t toMqttQ;
-    QueueHandle_t fromMqttQ;
-} ble_scan_task_ipc_t;
+void ble_task(void * ipc_void);
 
-void ble_scan_task(void * ipc);
+void bleMac2devName(uint8_t const * const bda, char * const name, size_t name_len);
+char * bleMac2str(uint8_t const * const bda, char * const str);
