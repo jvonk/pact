@@ -55,20 +55,6 @@ sendToMqtt(toMqttMsgType_t const dataType, char const * const data, ipc_t const 
     }
 }
 
-static void
-_wifiConnectHandler(void * arg_void, esp_event_base_t event_base,  int32_t event_id, void * event_data)
-{
-    ESP_LOGI(TAG, "Connected to WiFi");
-    //ipc_t const * const ipc = arg_void;
-}
-
-static void
-_wifiDisconnectHandler(void * arg_void, esp_event_base_t event_base, int32_t event_id, void * event_data)
-{
-    ESP_LOGI(TAG, "Disconnected from WiFi");
-    //ipc_t const * const ipc = arg_void;
-}
-
 static esp_err_t
 _mqttEventHandler(esp_mqtt_event_handle_t event) {
 
@@ -76,12 +62,12 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
 
 	switch (event->event_id) {
         case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGW(TAG, "Disconnected from broker");
+            ESP_LOGW(TAG, "Broker disconnected");
             xEventGroupClearBits(_mqttEventGrp, MQTT_EVENT_CONNECTED_BIT);
         	// reconnect is part of the SDK
             break;
         case MQTT_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "Connected to broker");
+            ESP_LOGI(TAG, "Broker connected");
             xEventGroupSetBits(_mqttEventGrp, MQTT_EVENT_CONNECTED_BIT);
             esp_mqtt_client_subscribe(event->client, _topic.ctrl, 1);
             esp_mqtt_client_subscribe(event->client, _topic.ctrlGroup, 1);
@@ -170,11 +156,23 @@ _type2subtopic(toMqttMsgType_t const type)
     return NULL;
 }
 
+static void
+_wait4ipcDevAvail(ipc_t * ipc)
+{
+    // ble sends a msg when ipc->dev is initialized
+    toMqttMsg_t msg;
+    assert(xQueueReceive(ipc->toMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS);
+    assert(msg.dataType == TO_MQTT_IPC_DEV_AVAILABLE);
+    free(msg.data);
+}
+
 void
 mqtt_task(void * ipc_void) {
 
     ESP_LOGI(TAG, "starting ..");
 	ipc_t * ipc = ipc_void;
+
+    _wait4ipcDevAvail(ipc);
 
     _topic.data     = malloc(strlen(CONFIG_BLESCAN_MQTT_DATA_TOPIC) + 1 + strlen(ipc->dev.name) + 1);
     _topic.ctrl      = malloc(strlen(CONFIG_BLESCAN_MQTT_CTRL_TOPIC) + 1 + strlen(ipc->dev.name) + 1);
@@ -184,14 +182,11 @@ mqtt_task(void * ipc_void) {
     sprintf(_topic.ctrl, "%s/%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC, ipc->dev.name);  // received device specific ctrl msg
     sprintf(_topic.ctrlGroup, "%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC);               // received group ctrl msg
 
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &_wifiDisconnectHandler, ipc));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_wifiConnectHandler, ipc));
-
 	_mqttEventGrp = xEventGroupCreate();
 	esp_mqtt_client_handle_t const client = _connect2broker(ipc);
 
 	while (1) {
-    	toMqttMsg_t msg;
+        toMqttMsg_t msg;
 		if (xQueueReceive(ipc->toMqttQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
             char const * const subtopic = _type2subtopic(msg.dataType);
             char * topic;

@@ -66,11 +66,10 @@ sendToBle(toBleMsgType_t const dataType, char const * const data, ipc_t const * 
     }
 }
 
-char *
-bda2str(uint8_t const * const bda, char * const str) {
+static char *
+_bda2str(uint8_t const * const bda, char * const str) {
 
-    uint len = 0;
-    for (uint ii = 0; ii < ESP_BD_ADDR_LEN; ii++) {
+    for (uint ii = 0, len = 0; ii < ESP_BD_ADDR_LEN; ii++) {
         len += sprintf(str + len, "%02x", bda[ii]);
         if (ii < ESP_BD_ADDR_LEN - 1) {
             str[len++] = ':';
@@ -79,8 +78,8 @@ bda2str(uint8_t const * const bda, char * const str) {
     return str;
 }
 
-void
-bda2devName(uint8_t const * const bda, char * const name, size_t name_len) {
+static void
+_bda2devName(uint8_t const * const bda, char * const name, size_t name_len) {
 	typedef struct {
 		uint8_t const bda[ESP_BD_ADDR_LEN];
 		char const * const name;
@@ -106,7 +105,8 @@ bda2devName(uint8_t const * const bda, char * const name, size_t name_len) {
         { {0x8c, 0xaa, 0xb5, 0x86, 0x2d, 0x5a}, "esp32-18" },
         { {0x8c, 0xaa, 0xb5, 0x84, 0xec, 0xc6}, "esp32-19" },
         { {0x8c, 0xaa, 0xb5, 0x86, 0x08, 0x46}, "esp32-20" },
-        { {0x30, 0xae, 0xa4, 0xcc, 0x45, 0x06}, "esp32-wrover-1" }
+        { {0x30, 0xae, 0xa4, 0xcc, 0x45, 0x06}, "esp32-wrover-1" },
+        { {0x30, 0xae, 0xa4, 0xcc, 0x42, 0x7a}, "esp32-wrover-2" }
 	};
 	for (uint ii=0; ii < ARRAYSIZE(knownBrds); ii++) {
 		if (memcmp(bda, knownBrds[ii].bda, ESP_BD_ADDR_LEN) == 0) {
@@ -173,7 +173,7 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t * param) {
                 uint len = 0;
                 char payload[256];
                 char devName[BLE_DEVNAME_LEN];
-                bda2devName(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
+                _bda2devName(scan_result->scan_rst.bda, devName, BLE_DEVNAME_LEN);
 
                 len += sprintf(payload + len, "{ \"name\": \"%s\"", devName);
 
@@ -355,6 +355,12 @@ ble_task(void * ipc_void) {
 	esp_bt_controller_init(&bt_cfg);
 	esp_bt_controller_enable(ESP_BT_MODE_BLE);
 	_initIbeacon();
+
+    uint8_t const * const bda = esp_bt_dev_get_address();
+    _bda2str(bda, _ipc->dev.bda);
+	_bda2devName(bda, _ipc->dev.name, BLE_DEVNAME_LEN);
+
+    sendToMqtt(TO_MQTT_IPC_DEV_AVAILABLE, _ipc->dev.name, _ipc);
 
 	ble_event_group = xEventGroupCreate();  // for event handler to signal completion
 

@@ -133,10 +133,6 @@ void app_main() {
 
 	_connect2wifi(&ipc);  // waits for WiFi connection established
 
-    uint8_t const * const bda = esp_bt_dev_get_address();
-    bda2str(bda, ipc.dev.bda);
-	bda2devName(bda, ipc.dev.name, BLE_DEVNAME_LEN);
-
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
     xTaskCreate(&ble_task, "ble_task", 2 * 4096, &ipc, 5, NULL);
     xTaskCreate(&mqtt_task, "mqtt_task", 2 * 4096, &ipc, 5, NULL);
