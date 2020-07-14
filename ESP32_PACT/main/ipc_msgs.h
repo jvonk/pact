@@ -24,6 +24,7 @@ typedef enum toMqttMsgType_t {
     TO_MQTT_MSGTYPE_SCAN,
     TO_MQTT_MSGTYPE_RESTART,
     TO_MQTT_MSGTYPE_WHO,
+    TO_MQTT_MSGTYPE_MODE,
     TO_MQTT_MSGTYPE_DBG,
 } toMqttMsgType_t;
 

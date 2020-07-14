@@ -86,10 +86,10 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
 
                     esp_partition_t const * const running_part = esp_ota_get_running_partition();
                     esp_app_desc_t running_app_info;
-                    esp_ota_get_partition_description(running_part, &running_app_info);
+                    ESP_ERROR_CHECK(esp_ota_get_partition_description(running_part, &running_app_info));
 
                     wifi_ap_record_t ap_info;
-                    esp_wifi_sta_get_ap_info(&ap_info);
+                    ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_info));
 
                     char * payload;
                     int const payload_len = asprintf(&payload,
@@ -128,8 +128,7 @@ _connect2broker(ipc_t const * const ipc) {
         };
         client = esp_mqtt_client_init(&mqtt_cfg);
 
-        //ESP_ERROR_CHECKesp_mqtt_client_set_uri(client, CONFIG_BLESCAN_MQTT_URL));
-        ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+        esp_mqtt_client_start(client);
     }
 	assert(xEventGroupWaitBits(_mqttEventGrp, MQTT_EVENT_CONNECTED_BIT, pdFALSE, pdFALSE, portMAX_DELAY));
     return client;
@@ -145,6 +144,7 @@ _type2subtopic(toMqttMsgType_t const type)
         { TO_MQTT_MSGTYPE_SCAN, "scan" },
         { TO_MQTT_MSGTYPE_RESTART, "restart" },
         { TO_MQTT_MSGTYPE_WHO, "who" },
+        { TO_MQTT_MSGTYPE_MODE, "mode" },
         { TO_MQTT_MSGTYPE_DBG, "dbg" },
     };
     for (uint ii = 0; ii < ARRAYSIZE(mapping); ii++) {
@@ -172,12 +172,8 @@ mqtt_task(void * ipc_void) {
 	ipc_t * ipc = ipc_void;
 
     _wait4ipcDevAvail(ipc);
-
-    _topic.ctrl      = malloc(strlen(CONFIG_BLESCAN_MQTT_CTRL_TOPIC) + 1 + strlen(ipc->dev.name) + 1);
-    _topic.ctrlGroup = malloc(strlen(CONFIG_BLESCAN_MQTT_CTRL_TOPIC) + 1);
-    assert(_topic.ctrl && _topic.ctrlGroup);
-    sprintf(_topic.ctrl, "%s/%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC, ipc->dev.name);  // received device specific ctrl msg
-    sprintf(_topic.ctrlGroup, "%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC);               // received group ctrl msg
+    assert(asprintf(&_topic.ctrl, "%s/%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC, ipc->dev.name));
+    assert(asprintf(&_topic.ctrlGroup, "%s", CONFIG_BLESCAN_MQTT_CTRL_TOPIC));
 
 	_mqttEventGrp = xEventGroupCreate();
 	esp_mqtt_client_handle_t const client = _connect2broker(ipc);

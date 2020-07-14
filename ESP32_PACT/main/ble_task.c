@@ -195,11 +195,10 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t * param) {
 static void
 _initIbeacon(void) {
 
-	esp_bluedroid_init();
-	esp_bluedroid_enable();
+	ESP_ERROR_CHECK(esp_bluedroid_init());
+	ESP_ERROR_CHECK(esp_bluedroid_enable());
 
-	esp_err_t status = esp_ble_gap_register_callback(_bleGapHandler);
-	if (status != ESP_OK) ESP_LOGE(TAG, "gap register error: %s", esp_err_to_name(status));
+    ESP_ERROR_CHECK(esp_ble_gap_register_callback(_bleGapHandler));
 }
 
 static void
@@ -213,17 +212,16 @@ _bleStartScan(uint16_t const scan_window) {
             .scan_filter_policy = BLE_SCAN_FILTER_ALLOW_ALL,
             .scan_duplicate = BLE_SCAN_DUPLICATE_DISABLE
         };
-        ble_scan_params.scan_interval = scan_window + 0x20, // time between start of scans [n * 0.625 msec]
-        ble_scan_params.scan_window = scan_window,          // scan duration               [n * 0.625 msec]
-
-		esp_ble_gap_set_scan_params(&ble_scan_params);
+        ble_scan_params.scan_interval = scan_window + 0x20; // time between start of scans [n * 0.625 msec]
+        ble_scan_params.scan_window = scan_window;          // scan duration               [n * 0.625 msec]
+		ESP_ERROR_CHECK(esp_ble_gap_set_scan_params(&ble_scan_params));
 	}
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_PARAM_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE);
     {
         uint32_t duration = 0;  // [sec], 0 means scan permanently
-        esp_ble_gap_start_scanning(duration);
+        ESP_ERROR_CHECK(esp_ble_gap_start_scanning(duration));
     }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STARTED scanning");
@@ -234,9 +232,7 @@ _bleStopScan(void) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE);
     {
-        if (esp_ble_gap_stop_scanning() != ESP_OK) {
-            ESP_LOGI(TAG, "ERR stopping scanning");
-        }
+        ESP_ERROR_CHECK(esp_ble_gap_stop_scanning());
     }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STOPPED scanning");
@@ -248,12 +244,8 @@ _bleStartAdv(uint16_t const adv_int_max) {
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE);
 	{
 		esp_ble_ibeacon_t ibeacon_adv_data;
-		esp_err_t status = esp_ble_config_ibeacon_data(&vendor_config, &ibeacon_adv_data);
-		if (status == ESP_OK) {
-			esp_ble_gap_config_adv_data_raw((uint8_t *)&ibeacon_adv_data, sizeof(ibeacon_adv_data));
-		} else {
-			ESP_LOGE(TAG, "Config iBeacon data failed: %s\n", esp_err_to_name(status));
-		}
+		ESP_ERROR_CHECK(esp_ble_config_ibeacon_data(&vendor_config, &ibeacon_adv_data));
+        ESP_ERROR_CHECK(esp_ble_gap_config_adv_data_raw((uint8_t *) &ibeacon_adv_data, sizeof(ibeacon_adv_data)));
 	}
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_DATA_RAW_SET_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 
@@ -265,10 +257,10 @@ _bleStartAdv(uint16_t const adv_int_max) {
             .channel_map = ADV_CHNL_ALL,
             .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
         };
-        ble_adv_params.adv_int_min = adv_int_max >> 1, // minimum advertisement interval [n * 0.625 msec]
-        ble_adv_params.adv_int_max = adv_int_max,      // maximim advertisement interval [n * 0.625 msec]
+        ble_adv_params.adv_int_min = adv_int_max >> 1; // minimum advertisement interval [n * 0.625 msec]
+        ble_adv_params.adv_int_max = adv_int_max;     // maximim advertisement interval [n * 0.625 msec]
 
-        esp_ble_gap_start_advertising(&ble_adv_params);
+        ESP_ERROR_CHECK(esp_ble_gap_start_advertising(&ble_adv_params));
     }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_START_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STARTED advertising");
@@ -279,32 +271,42 @@ _bleStopAdv(void) {
 
 	xEventGroupClearBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE);
     {
-        if (esp_ble_gap_stop_advertising() != ESP_OK) {
-            ESP_LOGI(TAG, "ERR stopping advertising");
-        }
+        ESP_ERROR_CHECK(esp_ble_gap_stop_advertising());
     }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_ADV_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
 	ESP_LOGI(TAG, "STOPPED advertising");
 }
 
+typedef struct modeMap_t {
+    char * str;
+    bleMode_t bleMode;
+} modeMap_t;
+static modeMap_t _modeMaps[] = {
+    { "idle", BLE_MODE_IDLE},
+    { "scan", BLE_MODE_SCAN},
+    { "adv", BLE_MODE_ADV},
+};
+
 static bleMode_t
 _str2bleMode(char const * const str) {
 
-    typedef struct {
-        char * str;
-        bleMode_t bleMode;
-    } mode_t;
-    static mode_t modes[] = {
-        { "idle", BLE_MODE_IDLE},
-        { "scan", BLE_MODE_SCAN},
-        { "adv", BLE_MODE_ADV},
-    };
-    for (uint ii = 0; ii < ARRAYSIZE(modes); ii++) {
-        if (strcmp(str, modes[ii].str) == 0) {
-            return modes[ii].bleMode;
+    for (uint ii = 0; ii < ARRAYSIZE(_modeMaps); ii++) {
+        if (strcmp(str, _modeMaps[ii].str) == 0) {
+            return _modeMaps[ii].bleMode;
         }
     }
     return 0;
+}
+
+static char const *
+_bleMode2str(bleMode_t const bleMode) {
+
+    for (uint ii = 0; ii < ARRAYSIZE(_modeMaps); ii++) {
+        if (bleMode == _modeMaps[ii].bleMode) {
+            return _modeMaps[ii].str;
+        }
+    }
+    return "err";
 }
 
 static uint
@@ -352,8 +354,8 @@ ble_task(void * ipc_void) {
 
 	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-	esp_bt_controller_init(&bt_cfg);
-	esp_bt_controller_enable(ESP_BT_MODE_BLE);
+	ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
+	ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BLE));
 	_initIbeacon();
 
     uint8_t const * const bda = esp_bt_dev_get_address();
@@ -371,30 +373,32 @@ ble_task(void * ipc_void) {
 
 		toBleMsg_t msg;
 		if (xQueueReceive(_ipc->toBleQ, &msg, (TickType_t)(1000L / portTICK_PERIOD_MS)) == pdPASS) {
+            assert(msg.dataType == TO_BLE_MSGTYPE_CTRL);
 
-            if (msg.dataType != TO_BLE_MSGTYPE_CTRL) {
-                ESP_LOGE(TAG, "dataType (%d) err", msg.dataType);
+            char * args[3];
+            uint8_t argc = _splitArgs(msg.data, args, ARRAYSIZE(args));
+
+            if (strcmp(args[0], "int") == 0 ) {
+                if (argc >= 2) {
+                    adv_int_max = (atoi(args[1]) << 4) / 10;
+
+                    bleMode_t const orgBleMode = bleMode;  // args[1] in msec
+                    bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);
+                    bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_max);
+                }
             } else {
-                char * args[3];
-                uint8_t argc = _splitArgs(msg.data, args, ARRAYSIZE(args));
 
-                if (strcmp(args[0], "int") == 0 && argc >= 2) {
-
-                        // args[1] should be in 10s of msec, e.g. for 150 msec, specify 15
-                        adv_int_max = (atoi(args[1]) << 4) / 10;
-
-                        bleMode_t const orgBleMode = bleMode;  // args[1] in msec
-                        bleMode = _changeBleMode(bleMode, BLE_MODE_IDLE, adv_int_max);
-                        bleMode = _changeBleMode(bleMode, orgBleMode, adv_int_max);
-
-                } else {
-
-                    bleMode_t const newBleMode = _str2bleMode(args[0]);
-                    if (newBleMode) {
-                        bleMode = _changeBleMode(bleMode, newBleMode, adv_int_max);
-                    }
+                bleMode_t const newBleMode = _str2bleMode(args[0]);
+                if (newBleMode) {
+                    bleMode = _changeBleMode(bleMode, newBleMode, adv_int_max);
                 }
             }
+            char * payload;
+            assert(asprintf(&payload,
+                            "{ \"response\": { \"mode\": \"%s\", \"interval\": %u } }",
+                            _bleMode2str(bleMode), (adv_int_max * 10) >> 4 ));
+            sendToMqtt(TO_MQTT_MSGTYPE_MODE, payload, _ipc);
+            free(payload);
 			free(msg.data);
 		}
 	}
