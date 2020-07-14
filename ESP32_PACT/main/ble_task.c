@@ -184,7 +184,7 @@ _bleGapHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t * param) {
                 len += sprintf(payload + len, ", \"txPwr\": %d", ibeacon_data->ibeacon_vendor.measured_power);
                 len += sprintf(payload + len, ", \"RSSI\": %d }", scan_result->scan_rst.rssi);
 
-                sendToMqtt(TO_MQTT_MSGTYPE_DATA, payload, _ipc);
+                sendToMqtt(TO_MQTT_MSGTYPE_SCAN, payload, _ipc);
             }
         }
         default:
