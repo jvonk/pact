@@ -71,7 +71,7 @@ _mqttEventHandler(esp_mqtt_event_handle_t event) {
             ipc->dev.connectCnt.mqtt++;
             esp_mqtt_client_subscribe(event->client, _topic.ctrl, 1);
             esp_mqtt_client_subscribe(event->client, _topic.ctrlGroup, 1);
-            ESP_LOGI(TAG, " subscribed to \"%s\", \"%s\"", _topic.ctrl, _topic.ctrlGroup);
+            ESP_LOGI(TAG, "Subscribed to \"%s\", \"%s\"", _topic.ctrl, _topic.ctrlGroup);
             break;
         case MQTT_EVENT_DATA:
             if (event->topic && event->data_len == event->total_data_len) {  // quietly ignores chunked messaegs

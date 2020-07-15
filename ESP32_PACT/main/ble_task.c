@@ -197,7 +197,6 @@ _initIbeacon(void) {
 
 	ESP_ERROR_CHECK(esp_bluedroid_init());
 	ESP_ERROR_CHECK(esp_bluedroid_enable());
-
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(_bleGapHandler));
 }
 
@@ -224,7 +223,7 @@ _bleStartScan(uint16_t const scan_window) {
         ESP_ERROR_CHECK(esp_ble_gap_start_scanning(duration));
     }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_START_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
-	ESP_LOGI(TAG, "STARTED scanning");
+	//ESP_LOGI(TAG, "STARTED scanning");
 }
 
 static void
@@ -235,7 +234,7 @@ _bleStopScan(void) {
         ESP_ERROR_CHECK(esp_ble_gap_stop_scanning());
     }
 	xEventGroupWaitBits(ble_event_group, BLE_EVENT_SCAN_STOP_COMPLETE, pdFALSE, pdFALSE, portMAX_DELAY);
-	ESP_LOGI(TAG, "STOPPED scanning");
+	//ESP_LOGI(TAG, "STOPPED scanning");
 }
 
 static void

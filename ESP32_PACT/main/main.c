@@ -18,12 +18,20 @@
 #include <sys/param.h>
 #include <esp_ota_ops.h>
 #include <esp_bt_device.h>
+#include "esp_core_dump.h"
 
 #include <ota_task.h>
 #include <reset_task.h>
 #include "ipc_msgs.h"
 #include "mqtt_task.h"
 #include "ble_task.h"
+
+#define ARRAYSIZE(a) (sizeof(a) / sizeof(*(a)))
+#define ALIGN( type ) __attribute__((aligned( __alignof__( type ) )))
+#define PACK( type )  __attribute__((aligned( __alignof__( type ) ), packed ))
+#define PACK8  __attribute__((aligned( __alignof__( uint8_t ) ), packed ))
+//#define MIN(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a < _b ? _a : _b; })
+//#define MAX(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b; })
 
 static char const * const TAG = "main_app";
 static EventGroupHandle_t _wifi_event_group;
@@ -122,6 +130,62 @@ _connect2wifi(ipc_t * const ipc)
     assert(xEventGroupWaitBits(_wifi_event_group, WIFI_EVENT_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY));
 }
 
+static void
+_getCoredump(void)
+{
+    // BIN or ELF coredumping doesn't appear ready for primetime on SDK 4.1-beta2
+    esp_core_dump_init();
+#if 0
+    {
+        esp_partition_t const * const part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, "coredump");
+        if (!part) {
+            ESP_LOGE(TAG, "Coredump no part 1");
+            return;
+        }
+        esp_partition_erase_range(part, 0, part->size);
+    }
+#endif
+
+    esp_partition_t const * const part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, NULL);
+    if (!part) {
+        ESP_LOGE(TAG, "Coredump no part");
+        return;
+    }
+
+    size_t part_addr;
+    size_t part_size;
+    esp_err_t err = esp_core_dump_image_get(&part_addr, &part_size);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Coredump no image (%s)", esp_err_to_name(err));
+        ESP_LOGW(TAG, " address %x > chip->size %x, ", part_addr, esp_flash_default_chip->size);
+        ESP_LOGW(TAG, " address + length %x > chip->size %x", part_addr + part_size, esp_flash_default_chip->size);
+        return;
+    }
+
+    size_t const chunk_len = 256;
+    size_t const str_len = chunk_len * 2 + 1;
+    uint8_t * const chunk = malloc(chunk_len);
+    char * const str = malloc(str_len);
+    assert(chunk && str);
+
+    for (size_t offset = 0; offset < part_size; offset += chunk_len) {
+
+        uint const read_len = MIN(chunk_len, part_size - offset);
+        //ESP_LOGI(TAG, "offset=0x%x part_size=%u, read_len=%u", offset, part_size, read_len);
+        if (esp_partition_read(part, offset, chunk, read_len) != ESP_OK) {
+            ESP_LOGE(TAG, "Coredump read failed");
+            break;
+        }
+        uint len = 0;
+        for (uint ii = 0; ii < read_len; ii++) {
+            len += snprintf(str + len, str_len - len, "%02x", chunk[ii]);
+        }
+        printf("%s", str);  //  2BD: to MQTT??
+    }
+    free(chunk);
+    free(str);
+}
+
 void app_main() {
 
 	xTaskCreate(&reset_task, "reset_task", 4096, NULL, 5, NULL);
@@ -136,6 +200,9 @@ void app_main() {
     assert(ipc.toBleQ && ipc.toMqttQ);
 
 	_connect2wifi(&ipc);  // waits for WiFi connection established
+
+    //_getCoredump();
+    //assert(0);
 
 	xTaskCreate(&ota_task, "ota_task", 2 * 4096, NULL, 5, NULL);
     xTaskCreate(&ble_task, "ble_task", 2 * 4096, &ipc, 5, NULL);
