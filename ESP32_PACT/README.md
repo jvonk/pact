@@ -15,6 +15,16 @@ I used this as a tool to research the behavior of Bluetooth Low-Energy (BLE) sig
 
 ## Getting started
 
+Clone using
+```
+git clone --recursive https://github.com/jvonk/pact
+```
+
+Update using
+```bash
+git submodule update --recursive --remote
+```
+
 Parts:
 - ESP32 board with 4 MByte flash memory, such as [ESP32-DevKitC-VB](https://www.espressif.com/en/products/devkits/esp32-devkitc/overview), LOLIN32, MELIFE ESP32 or pretty much any ESP32 board.
 - 5 Volt, micro USB power adapter
