@@ -83,6 +83,7 @@ _forwardCoredump(ipc_t * ipc, esp_mqtt_client_handle_t const client)
         .priv = &priv,
     };
     coredump_to_server(&coredump_cfg);
+    free(priv.topic);
 }
 
 static esp_err_t
