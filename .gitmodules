@@ -6,10 +6,6 @@
 	path = ESP32_PACT/components/coredump_to_server
 	url = https://github.com/cvonk/ESP32_coredump-to-server.git
 	branch = master
-[submodule "ESP32_PACT/components/ble_prov"]
-	path = ESP32_PACT/components/ble_prov
-	url = https://github.com/cvonk/ESP32_ble-prov.git
-	branch = master
 [submodule "ESP32_PACT/components/factory_reset_task"]
 	path = ESP32_PACT/components/factory_reset_task
 	url = https://github.com/cvonk/ESP32_factory-reset-task.git
