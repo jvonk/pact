@@ -19,7 +19,7 @@ Parts:
 - ESP32 board with 4 MByte flash memory, such as [ESP32-DevKitC-VB](https://www.espressif.com/en/products/devkits/esp32-devkitc/overview), LOLIN32, MELIFE ESP32 or pretty much any ESP32 board.
 - 5 Volt, micro USB power adapter
 
-The software relies on the ESP-IDF SDK version >= 4.1-beta2 and accompanying tools.
+The software relies on the master ESP-IDF SDK version v4.3-dev-472-gcf056a7d0 and accompanying tools.
 
 ### Configuration
 

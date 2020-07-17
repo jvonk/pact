@@ -61,20 +61,6 @@ sendToMqtt(toMqttMsgType_t const dataType, char const * const data, ipc_t const 
 }
 
 static esp_err_t
-_coredump_to_server_begin_cb(void * priv_void)
-{
-    //coredump_priv_t * const priv = priv_void;
-    return ESP_OK;
-}
-
-static esp_err_t
-_coredump_to_server_end_cb(void * priv_void)
-{
-    //coredump_priv_t * const priv = priv_void;
-    return ESP_OK;
-}
-
-static esp_err_t
 _coredump_to_server_write_cb(void * priv_void, char const * const str)
 {
     coredump_priv_t const * const priv = priv_void;
@@ -91,8 +77,8 @@ _forwardCoredump(ipc_t * ipc, esp_mqtt_client_handle_t const client)
     };
     asprintf(&priv.topic, "%s/coredump/%s", CONFIG_BLESCAN_MQTT_DATA_TOPIC, ipc->dev.name);
     coredump_to_server_config_t coredump_cfg = {
-        .start = _coredump_to_server_begin_cb,
-        .end = _coredump_to_server_end_cb,
+        .start = NULL,
+        .end = NULL,
         .write = _coredump_to_server_write_cb,
         .priv = &priv,
     };
