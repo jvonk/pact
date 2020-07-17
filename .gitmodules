@@ -1,0 +1,8 @@
+[submodule "ESP32_PACT/components/ota_update_task"]
+	path = ESP32_PACT/components/ota_update_task
+	url = https://github.com/cvonk/ESP32_ota-update-task.git
+	branch = master
+[submodule "ESP32_PACT/components/coredump_to_server"]
+	path = ESP32_PACT/components/coredump_to_server
+	url = https://github.com/cvonk/ESP32_coredump-to-server.git
+	branch = master
