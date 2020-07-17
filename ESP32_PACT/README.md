@@ -54,7 +54,6 @@ Compile `blescan.bin` first, by opening the top level folder in Microsft Visual 
 
 When using OTA updates, the resulting `build/blescan.bin` should be copied to the OTA file server (`OTA_FIRMWARE_URL`).
 
-
 ### Provision WiFi credentials
 
 If you set your WiFi SSID and password using `Kconfig` you're all set and can simply flash the application and skip the remainder of this section.
@@ -65,7 +64,7 @@ On your phone run the Espressif BLE Provisioning app.
 - [Android](https://play.google.com/store/apps/details?id=com.espressif.provble)
 - [iOS](https://apps.apple.com/in/app/esp-ble-provisioning/id1473590141)
 Scan and connect to the ESP32.  Then specify the WiFi SSID and password.
-(You probably have to change `_ble_device_name_prefix` to `PROV_` in `factory\main.c` and change the `config.service_uuid` in `ble_prov.c` to us the mobile apps.)
+(You probably have to change `_ble_device_name_prefix` to `PROV_` in `factory\main.c` and change the `config.service_uuid` in `ble_prov.c` to use the mobile apps.)
 
 This stores the WiFi SSID and password in flash memory and triggers a OTA download of the application itself.  Alternatively, don't supply the OTA path and flash the `blescan.bin` application using the serial port.
 
