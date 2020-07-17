@@ -22,7 +22,7 @@
 #include <lwip/err.h>
 #include <lwip/sys.h>
 
-#include "ble_prov.h"
+#include "factory_ble_prov.h"
 #include "ota_update_task.h"
 
 /**
