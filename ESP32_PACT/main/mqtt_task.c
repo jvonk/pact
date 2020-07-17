@@ -18,6 +18,7 @@
 #include <mqtt_client.h>
 #include <esp_ota_ops.h>
 
+#include <coredump_to_server.h>
 #include "ipc_msgs.h"
 #include "mqtt_task.h"
 
@@ -38,6 +39,11 @@ static struct {
     char * ctrlGroup;
 } _topic;
 
+typedef struct coredump_priv_t {
+    esp_mqtt_client_handle_t const client;
+    char * topic;
+} coredump_priv_t;
+
 static esp_mqtt_client_handle_t _connect2broker(ipc_t const * const ipc);  // forward decl
 
 void
@@ -52,6 +58,45 @@ sendToMqtt(toMqttMsgType_t const dataType, char const * const data, ipc_t const 
         ESP_LOGE(TAG, "toMqttQ full");
         free(msg.data);
     }
+}
+
+static esp_err_t
+_coredump_to_server_begin_cb(void * priv_void)
+{
+    //coredump_priv_t * const priv = priv_void;
+    return ESP_OK;
+}
+
+static esp_err_t
+_coredump_to_server_end_cb(void * priv_void)
+{
+    //coredump_priv_t * const priv = priv_void;
+    return ESP_OK;
+}
+
+static esp_err_t
+_coredump_to_server_write_cb(void * priv_void, char const * const str)
+{
+    coredump_priv_t const * const priv = priv_void;
+
+    esp_mqtt_client_publish(priv->client, priv->topic, str, strlen(str), 1, 0);
+    return ESP_OK;
+}
+
+static void
+_forwardCoredump(ipc_t * ipc, esp_mqtt_client_handle_t const client)
+{
+    coredump_priv_t priv = {
+        .client = client,
+    };
+    asprintf(&priv.topic, "%s/coredump/%s", CONFIG_BLESCAN_MQTT_DATA_TOPIC, ipc->dev.name);
+    coredump_to_server_config_t coredump_cfg = {
+        .start = _coredump_to_server_begin_cb,
+        .end = _coredump_to_server_end_cb,
+        .write = _coredump_to_server_write_cb,
+        .priv = &priv,
+    };
+    coredump_to_server(&coredump_cfg);
 }
 
 static esp_err_t
@@ -177,6 +222,8 @@ mqtt_task(void * ipc_void) {
 
 	_mqttEventGrp = xEventGroupCreate();
 	esp_mqtt_client_handle_t const client = _connect2broker(ipc);
+
+    _forwardCoredump(ipc, client);
 
 	while (1) {
         toMqttMsg_t msg;
