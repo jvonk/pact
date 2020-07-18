@@ -1,5 +1,5 @@
 # erase sdkconfig after changing this file, so it gets rebuild
-menu "BLE Scan"
+menu "BLE Scan/Adv App"
 
     config WIFI_SSID
         string "WiFi SSID"
@@ -31,5 +31,17 @@ menu "BLE Scan"
         help
             URL of the MQTT broker.  For authentication include the username
             and password.
+
+    config OTA_UPDATE_FIRMWARE_URL
+        string "Firmware upgrade url endpoint"
+        default "http://host:port/directory/ota_update_test.bin"
+        help
+            URL of server which hosts the firmware image.
+
+    config OTA_UPDATE_RECV_TIMEOUT
+        int "OTA Update receive Timeout"
+        default 5000
+        help
+            Maximum time for reception [sec]
 
 endmenu
