@@ -6,7 +6,7 @@ This program runs on an Espressif EPS32 microcontroller and advertizes or scan f
 
 I used this as a tool to research the behavior of Bluetooth Low-Energy (BLE) signals in relation to contact tracing.
 
-![ESP32 statues scattered around the room](media/photo.png)
+![ESP32 statues scattered around the yard](media/photo.jpg)
 
 ## Features:
 
@@ -22,6 +22,8 @@ The Git repository contains submodules.  To clone these submodules as well, use 
 ```
 git clone --recursive https://github.com/jvonk/pact
 git submodule init
+cp ESP32_PACT/main/Kconfig-example.projbuild ESP32_PACT/main/Kconfig.projbuild
+cp ESP32_PACT/components/ota_update_task/Kconfig-example ESP32_PACT/components/ota_update_task/Kconfig
 ```
 
 Update using
@@ -42,9 +44,8 @@ The software relies on the cutting edge (master) of the ESP-IDF System Developme
 
 ### Configure
 
-1. Copy `main/Kconfig-example.projbuild` to `main/Kconfig.projbuild`.
-2. Either update the defaults in the `Kconfig.projbuild` file directly, or use the "ESP-IDF: launch gui configuration tool".
-3. Delete `sdkconfig` so the build system will recreate it.
+1. Either update the defaults in the `Kconfig*` files directly, or use the "ESP-IDF: launch gui configuration tool".
+2. Delete `sdkconfig` so the build system will recreate it.
 
 ### Build
 
