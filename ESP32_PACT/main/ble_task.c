@@ -1,7 +1,7 @@
 /**
  * @brief BLE iBeacon advertisement or scanning
  **/
-// Copyright © 2020, Coert and Johan Vonk
+// Copyright © 2020, Johan and Coert Vonk
 // SPDX-License-Identifier: MIT
 
 #include <sdkconfig.h>

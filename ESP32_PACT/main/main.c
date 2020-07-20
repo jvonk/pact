@@ -1,7 +1,7 @@
 /**
  * @brief ESP32 BLE iBeacon scanner and advertising (ctrl/data over MQTT)
  **/
-// Copyright © 2020, Coert and Johan Vonk
+// Copyright © 2020, Johan and Coert Vonk
 // SPDX-License-Identifier: MIT
 #include <sdkconfig.h>
 #include <stdio.h>
@@ -37,7 +37,7 @@ void _init_nvs_flash(void)
 	ESP_ERROR_CHECK(ret);
 }
 
-static void
+static esp_err_t
 _wifi_connect_cb(void * const priv_void, esp_ip4_addr_t const * const ip)
 {
     ipc_t * const ipc = priv_void;
@@ -45,12 +45,14 @@ _wifi_connect_cb(void * const priv_void, esp_ip4_addr_t const * const ip)
     snprintf(ipc->dev.ipAddr, WIFI_DEVIPADDR_LEN, IPSTR, IP2STR(ip));
 
     ESP_LOGI(TAG, "%s / %u", ipc->dev.ipAddr, ipc->dev.connectCnt.wifi);
+    return ESP_OK;
 }
 
-static void
+static esp_err_t
 _wifi_disconnect_cb(void * const priv_void, bool const auth_err)
 {
     // should probably reprovision on repeated auth_err
+    return ESP_OK;
 }
 
 static void
