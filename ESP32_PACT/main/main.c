@@ -48,10 +48,17 @@ _wifi_connect_cb(void * const priv_void, esp_ip4_addr_t const * const ip)
 }
 
 static void
+_wifi_disconnect_cb(void * const priv_void, bool const auth_err)
+{
+    // should probably reprovision on repeated auth_err
+}
+
+static void
 _connect2wifi(ipc_t * const ipc)
 {
     wifi_connect_config_t wifi_connect_config = {
         .onConnect = _wifi_connect_cb,
+        .onDisconnect = _wifi_disconnect_cb,
         .priv = ipc,
     };
     ESP_ERROR_CHECK(wifi_connect_init(&wifi_connect_config));
