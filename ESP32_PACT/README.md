@@ -21,9 +21,9 @@ I used this as a tool to research the behavior of Bluetooth Low-Energy (BLE) sig
 The Git repository contains submodules.  To clone these submodules as well, use the `--recursive` flag.
 ```
 git clone --recursive https://github.com/jvonk/pact
-git submodule init
+cd pact
 cp ESP32_PACT/main/Kconfig-example.projbuild ESP32_PACT/main/Kconfig.projbuild
-cp ESP32_PACT/components/ota_update_task/Kconfig-example ESP32_PACT/components/ota_update_task/Kconfig
+cp ESP32_PACT/components/ota_update_task/Kconfig.example ESP32_PACT/components/ota_update_task/Kconfig
 ```
 
 Update using
