@@ -1,7 +1,8 @@
+# to propegate changes in this file, delete `sdkconfig`
+
 # factory binary is larger than default size
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="./partitions.csv"
-CONFIG_PARTITION_TABLE_FILENAME="./partitions.csv"
 
 # need 4 MByte flash for OTA updates
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
@@ -14,3 +15,8 @@ CONFIG_BT_ENABLED=y
 
 # optimize for size
 CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# coredumping
+CONFIG_ESP32_ENABLE_COREDUMP_TO_FLASH=y
+CONFIG_ESP32_COREDUMP_DATA_FORMAT_BIN=y
+
