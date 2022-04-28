@@ -1,0 +1,3 @@
+[submodule "ESP32_PACT"]
+	path = ESP32_PACT
+	url = https://github.com/cvonk/BLEscan.git
